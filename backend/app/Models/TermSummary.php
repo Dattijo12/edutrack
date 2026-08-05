@@ -6,41 +6,26 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Result extends Model
+class TermSummary extends Model
 {
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'student_id',
-        'subject_id',
         'class_id',
-        'teacher_id',
-        'ca_score',
-        'exam_score',
-        'total_score',
-        'grade',
-        'remark',
-        'subject_position',
-        'term',
-        'academic_session',
         'term_id',
-        'approval_status',
-        'verification_hash',
+        'total_marks',
+        'average',
+        'class_position',
+        'form_master_remark',
+        'principal_remark',
+        'attendance_present',
+        'attendance_total',
     ];
 
     public function student()
     {
         return $this->belongsTo(Student::class);
-    }
-
-    public function subject()
-    {
-        return $this->belongsTo(Subject::class);
-    }
-
-    public function teacher()
-    {
-        return $this->belongsTo(User::class, 'teacher_id');
     }
 
     public function schoolClass()

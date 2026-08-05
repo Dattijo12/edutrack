@@ -1,9 +1,6 @@
 import api from './api';
 
 const authService = {
-  /**
-   * Log in a user with email and password.
-   */
   async login(email, password) {
     const response = await api.post('/login', { email, password });
     if (response.data.token) {
@@ -13,25 +10,31 @@ const authService = {
     return response.data;
   },
 
-  /**
-   * Log out the current user.
-   */
   async logout() {
     try {
       await api.post('/logout');
+    } catch (e) {
+      console.error(e);
     } finally {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
     }
   },
 
-  /**
-   * Retrieve the current user's profile info.
-   */
   async getProfile() {
     const response = await api.get('/profile');
     return response.data;
   },
+
+  async changePassword(data) {
+    const response = await api.post('/change-password', data);
+    return response.data;
+  },
+
+  getCurrentUser() {
+    const userStr = localStorage.getItem('user');
+    return userStr ? JSON.parse(userStr) : null;
+  }
 };
 
 export default authService;

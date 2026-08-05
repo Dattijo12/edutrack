@@ -9,21 +9,19 @@ class Subject extends Model
 {
     use HasFactory;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
     protected $fillable = [
         'name',
         'code',
+        'category',
     ];
 
-    /**
-     * Get the results for this subject.
-     */
     public function results()
     {
         return $this->hasMany(Result::class);
+    }
+
+    public function assignments()
+    {
+        return $this->hasMany(SubjectAssignment::class, 'subject_id');
     }
 }

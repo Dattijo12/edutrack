@@ -1,36 +1,34 @@
 import api from './api';
 
 const examOfficerService = {
-  /**
-   * Fetch all results that are awaiting approval.
-   */
   async getPendingResults() {
-    const response = await api.get('/exam-officer/results/pending');
-    return response.data;
+    const res = await api.get('/exam-officer/results/pending');
+    return res.data;
   },
 
-  /**
-   * Approve a specific result.
-   */
-  async approveResult(resultId) {
-    const response = await api.post(`/exam-officer/results/${resultId}/approve`);
-    return response.data;
+  async approveResult(id) {
+    const res = await api.post(`/exam-officer/results/${id}/approve`);
+    return res.data;
   },
 
-  /**
-   * Reject a specific result.
-   */
-  async rejectResult(resultId) {
-    const response = await api.post(`/exam-officer/results/${resultId}/reject`);
-    return response.data;
+  async rejectResult(id) {
+    const res = await api.post(`/exam-officer/results/${id}/reject`);
+    return res.data;
   },
 
-  /**
-   * Generate a class report.
-   */
-  async getClassReport(classId) {
-    const response = await api.get(`/exam-officer/reports/class/${classId}`);
-    return response.data;
+  async getBroadsheet(classId, term = '1st Term', session = '2025/2026') {
+    const res = await api.get(`/exam-officer/broadsheet/${classId}`, { params: { term, session } });
+    return res.data;
+  },
+
+  async getReportCard(studentId, term = '1st Term', session = '2025/2026') {
+    const res = await api.get(`/exam-officer/report-card/${studentId}`, { params: { term, session } });
+    return res.data;
+  },
+
+  async verifyResult(hash) {
+    const res = await api.get(`/verify-result/${hash}`);
+    return res.data;
   }
 };
 

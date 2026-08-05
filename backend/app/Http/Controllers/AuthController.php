@@ -10,9 +10,6 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    /**
-     * Handle user authentication and API token generation.
-     */
     public function login(Request $request)
     {
         $request->validate([
@@ -28,7 +25,12 @@ class AuthController extends Controller
             ]);
         }
 
-        // Generate Sanctum api token
+        if ($user->status === 'inactive') {
+            return response()->json([
+                'message' => 'Account is inactive. Please contact the administrator.'
+            ], 403);
+        }
+
         $token = $user->createToken('auth-token')->plainTextToken;
 
         return response()->json([
@@ -38,17 +40,15 @@ class AuthController extends Controller
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
+                'phone' => $user->phone,
                 'role' => $user->role,
+                'status' => $user->status,
             ]
         ], 200);
     }
 
-    /**
-     * Revoke the current user's token (logout).
-     */
     public function logout(Request $request)
     {
-        // Revoke the token that was used to authenticate the current request
         $request->user()->currentAccessToken()->delete();
 
         return response()->json([
@@ -56,9 +56,6 @@ class AuthController extends Controller
         ], 200);
     }
 
-    /**
-     * Retrieve the authenticated user's profile information.
-     */
     public function profile(Request $request)
     {
         $user = $request->user();
@@ -68,8 +65,33 @@ class AuthController extends Controller
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
+                'phone' => $user->phone,
                 'role' => $user->role,
+                'status' => $user->status,
             ]
+        ], 200);
+    }
+
+    public function changePassword(Request $request)
+    {
+        $request->validate([
+            'current_password' => 'required|string',
+            'new_password' => 'required|string|min:6|confirmed',
+        ]);
+
+        $user = $request->user();
+
+        if (!Hash::check($request->current_password, $user->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['Your current password does not match our records.'],
+            ]);
+        }
+
+        $user->password = Hash::make($request->new_password);
+        $user->save();
+
+        return response()->json([
+            'message' => 'Password updated successfully'
         ], 200);
     }
 }

@@ -3,24 +3,21 @@
 namespace App\Http\Controllers\Teacher;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Teacher\StoreResultRequest;
-use App\Http\Requests\Teacher\UpdateResultRequest;
 use App\Models\Result;
 use App\Models\SchoolClass;
 use App\Models\Subject;
 use App\Models\Student;
+use App\Models\SubjectAssignment;
+use App\Services\GradingService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 class ResultController extends Controller
 {
-    /**
-     * Display a listing of results recorded by the teacher.
-     */
     public function index(Request $request)
     {
         $teacherId = $request->user()->id;
-        
+
         $results = Result::where('teacher_id', $teacherId)
             ->with(['student.class', 'subject'])
             ->get();
@@ -28,91 +25,87 @@ class ResultController extends Controller
         return response()->json($results, 200);
     }
 
-    /**
-     * Store a newly created result in storage.
-     */
-    public function store(StoreResultRequest $request)
+    public function store(Request $request)
     {
-        $validated = $request->validated();
+        $maxScores = GradingService::getMaxScores();
 
-        // Check if result already exists (composite unique constraint check)
-        $exists = Result::where([
-            'student_id' => $validated['student_id'],
-            'subject_id' => $validated['subject_id'],
-            'term' => $validated['term'],
-            'academic_session' => $validated['academic_session'],
-        ])->exists();
-
-        if ($exists) {
-            throw ValidationException::withMessages([
-                'student_id' => ['A result for this student, subject, term, and academic session already exists.'],
-            ]);
-        }
-
-        // Calculate total score and letter grade
-        $totalScore = $validated['ca_score'] + $validated['exam_score'];
-        $grade = $this->calculateGrade($totalScore);
-
-        $result = Result::create([
-            'student_id' => $validated['student_id'],
-            'subject_id' => $validated['subject_id'],
-            'teacher_id' => $request->user()->id,
-            'ca_score' => $validated['ca_score'],
-            'exam_score' => $validated['exam_score'],
-            'total_score' => $totalScore,
-            'grade' => $grade,
-            'term' => $validated['term'],
-            'academic_session' => $validated['academic_session'],
-            'approval_status' => 'pending'
+        $validated = $request->validate([
+            'student_id' => 'required|exists:students,id',
+            'subject_id' => 'required|exists:subjects,id',
+            'ca_score' => "required|numeric|min:0|max:{$maxScores['max_ca']}",
+            'exam_score' => "required|numeric|min:0|max:{$maxScores['max_exam']}",
+            'term' => 'required|string',
+            'academic_session' => 'required|string',
         ]);
 
+        $student = Student::findOrFail($validated['student_id']);
+
+        // Calculate total score and WAEC/NECO grade & remark
+        $totalScore = (float)$validated['ca_score'] + (float)$validated['exam_score'];
+        $gradeInfo = GradingService::calculateGrade($totalScore);
+
+        $result = Result::updateOrCreate(
+            [
+                'student_id' => $validated['student_id'],
+                'subject_id' => $validated['subject_id'],
+                'term' => $validated['term'],
+                'academic_session' => $validated['academic_session'],
+            ],
+            [
+                'class_id' => $student->class_id,
+                'teacher_id' => $request->user()->id,
+                'ca_score' => $validated['ca_score'],
+                'exam_score' => $validated['exam_score'],
+                'total_score' => $totalScore,
+                'grade' => $gradeInfo['grade'],
+                'remark' => $gradeInfo['remark'],
+                'approval_status' => 'pending',
+                'verification_hash' => md5("EDUTRACK_{$validated['student_id']}_{$validated['term']}_{$validated['academic_session']}_VERIFIED"),
+            ]
+        );
+
+        // Recalculate positions for this subject and class
+        GradingService::updateSubjectPositions(
+            $validated['subject_id'],
+            $student->class_id,
+            $validated['term'],
+            $validated['academic_session']
+        );
+
         return response()->json([
-            'message' => 'Result uploaded successfully',
+            'message' => 'Result recorded successfully',
             'data' => $result->load(['student.class', 'subject'])
         ], 201);
     }
 
-    /**
-     * Display the specified result.
-     */
     public function show(Request $request, Result $result)
     {
-        // Enforce ownership
-        if ($result->teacher_id !== $request->user()->id) {
-            return response()->json(['message' => 'Access denied. You did not record this result.'], 403);
-        }
-
         return response()->json($result->load(['student.class', 'subject']), 200);
     }
 
-    /**
-     * Update the specified result in storage.
-     */
-    public function update(UpdateResultRequest $request, Result $result)
+    public function update(Request $request, Result $result)
     {
-        // Enforce ownership
-        if ($result->teacher_id !== $request->user()->id) {
-            return response()->json(['message' => 'Access denied. You did not record this result.'], 403);
+        if ($result->approval_status === 'approved' && !$request->user()->isAdmin()) {
+            return response()->json(['message' => 'Cannot edit approved result.'], 422);
         }
 
-        // Enforce lock on approved results
-        if ($result->approval_status === 'approved') {
-            return response()->json(['message' => 'Cannot edit result that has already been approved.'], 422);
-        }
+        $maxScores = GradingService::getMaxScores();
 
-        $validated = $request->validated();
+        $validated = $request->validate([
+            'ca_score' => "required|numeric|min:0|max:{$maxScores['max_ca']}",
+            'exam_score' => "required|numeric|min:0|max:{$maxScores['max_exam']}",
+        ]);
 
-        // Re-calculate total score and grade
-        $totalScore = $validated['ca_score'] + $validated['exam_score'];
-        $grade = $this->calculateGrade($totalScore);
+        $totalScore = (float)$validated['ca_score'] + (float)$validated['exam_score'];
+        $gradeInfo = GradingService::calculateGrade($totalScore);
 
-        // Keep existing non-updatable values, update scores, status is reset to pending if rejected
         $result->update([
             'ca_score' => $validated['ca_score'],
             'exam_score' => $validated['exam_score'],
             'total_score' => $totalScore,
-            'grade' => $grade,
-            'approval_status' => 'pending' // Re-evaluate status on update
+            'grade' => $gradeInfo['grade'],
+            'remark' => $gradeInfo['remark'],
+            'approval_status' => 'pending',
         ]);
 
         return response()->json([
@@ -121,25 +114,43 @@ class ResultController extends Controller
         ], 200);
     }
 
-    /**
-     * Helper: List all classes (for teacher dropdown).
-     */
-    public function classes()
+    public function classes(Request $request)
     {
-        return response()->json(SchoolClass::all(), 200);
+        $teacherId = $request->user()->id;
+
+        if ($request->user()->isAdmin() || $request->user()->isExamOfficer()) {
+            return response()->json(SchoolClass::all(), 200);
+        }
+
+        // Return classes assigned to teacher
+        $classIds = SubjectAssignment::where('teacher_id', $teacherId)->pluck('class_id')->unique();
+        $classes = SchoolClass::whereIn('id', $classIds)->get();
+
+        if ($classes->isEmpty()) {
+            $classes = SchoolClass::all(); // Fallback for general preview
+        }
+
+        return response()->json($classes, 200);
     }
 
-    /**
-     * Helper: List all subjects (for teacher dropdown).
-     */
-    public function subjects()
+    public function subjects(Request $request)
     {
-        return response()->json(Subject::all(), 200);
+        $teacherId = $request->user()->id;
+
+        if ($request->user()->isAdmin() || $request->user()->isExamOfficer()) {
+            return response()->json(Subject::all(), 200);
+        }
+
+        $subjectIds = SubjectAssignment::where('teacher_id', $teacherId)->pluck('subject_id')->unique();
+        $subjects = Subject::whereIn('id', $subjectIds)->get();
+
+        if ($subjects->isEmpty()) {
+            $subjects = Subject::all(); // Fallback for general preview
+        }
+
+        return response()->json($subjects, 200);
     }
 
-    /**
-     * Helper: List students in a specific class.
-     */
     public function students(Request $request)
     {
         $request->validate([
@@ -147,20 +158,11 @@ class ResultController extends Controller
         ]);
 
         $students = Student::where('class_id', $request->class_id)->get();
-        
         return response()->json($students, 200);
     }
 
-    /**
-     * Determine the letter grade based on the total score.
-     */
-    private function calculateGrade(float $score): string
+    public function maxScores()
     {
-        if ($score >= 70) return 'A';
-        if ($score >= 60) return 'B';
-        if ($score >= 50) return 'C';
-        if ($score >= 45) return 'D';
-        if ($score >= 40) return 'E';
-        return 'F';
+        return response()->json(GradingService::getMaxScores(), 200);
     }
 }
