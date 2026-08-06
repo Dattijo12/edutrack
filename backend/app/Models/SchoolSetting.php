@@ -19,4 +19,19 @@ class SchoolSetting extends Model
         'max_ca_score',
         'max_exam_score',
     ];
+
+    protected $appends = [
+        'logo_url',
+        'principal_signature_url',
+    ];
+
+    public function getLogoUrlAttribute()
+    {
+        return $this->logo_path ? asset('storage/' . $this->logo_path) : null;
+    }
+
+    public function getPrincipalSignatureUrlAttribute()
+    {
+        return $this->principal_signature_path ? asset('storage/' . $this->principal_signature_path) : null;
+    }
 }

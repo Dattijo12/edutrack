@@ -23,7 +23,24 @@ const Login = () => {
       navigate('/dashboard');
     } catch (err) {
       console.error(err);
-      setError(err?.response?.data?.message || 'Failed to log in. Please check your credentials.');
+      const responseData = err?.response?.data;
+      const backendMessage =
+        responseData?.message ||
+        responseData?.errors?.email?.[0] ||
+        responseData?.errors?.password?.[0];
+
+      if (backendMessage) {
+        setError(backendMessage);
+        return;
+      }
+
+      const errMsg = typeof err?.message === 'string' ? err.message.toLowerCase() : '';
+      if (errMsg.includes('network error') || errMsg.includes('econnrefused') || errMsg.includes('timeout')) {
+        setError('Unable to reach login server. Please make sure the backend is running and try again.');
+        return;
+      }
+
+      setError('Failed to log in. Please check your credentials.');
     } finally {
       setLoading(false);
     }

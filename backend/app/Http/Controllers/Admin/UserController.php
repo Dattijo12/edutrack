@@ -38,6 +38,7 @@ class UserController extends Controller
             'phone' => 'nullable|string|max:20',
             'role' => ['required', Rule::in(['admin', 'exam_officer', 'bursar', 'form_master', 'teacher'])],
             'password' => 'required|string|min:6',
+            'status' => ['required', Rule::in(['active', 'inactive'])],
         ]);
 
         $user = User::create([
@@ -46,7 +47,7 @@ class UserController extends Controller
             'phone' => $validated['phone'] ?? null,
             'role' => $validated['role'],
             'password' => Hash::make($validated['password']),
-            'status' => 'active',
+            'status' => $validated['status'],
         ]);
 
         return response()->json([

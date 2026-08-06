@@ -7,9 +7,12 @@ import Dashboard from './pages/Dashboard';
 import Classes from './pages/admin/Classes';
 import Subjects from './pages/admin/Subjects';
 import Students from './pages/admin/Students';
+import SchoolSettings from './pages/admin/SchoolSettings';
+import UserManagement from './pages/admin/UserManagement';
 import ResultsEntry from './pages/teacher/ResultsEntry';
 import Approvals from './pages/exam-officer/Approvals';
 import Reports from './pages/exam-officer/Reports';
+import Broadsheet from './pages/exam-officer/Broadsheet';
 import MySubjects from './pages/teacher/MySubjects';
 
 function App() {
@@ -57,6 +60,24 @@ function App() {
               </ProtectedRoute>
             } 
           />
+
+          <Route 
+            path="/admin/settings" 
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <SchoolSettings />
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="/admin/users" 
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <UserManagement />
+              </ProtectedRoute>
+            } 
+          />
           
           {/* Teacher results entry */}
           <Route 
@@ -94,6 +115,15 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['exam_officer']}>
                 <Reports />
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="/exam-officer/broadsheet" 
+            element={
+              <ProtectedRoute allowedRoles={['exam_officer']}>
+                <Broadsheet />
               </ProtectedRoute>
             } 
           />

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\ExamOfficer;
 use App\Http\Controllers\Controller;
 use App\Models\Result;
 use App\Models\SchoolClass;
+use App\Models\SchoolSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -46,6 +47,7 @@ class ResultController extends Controller
     public function classReport($classId)
     {
         $class = SchoolClass::findOrFail($classId);
+        $school = SchoolSetting::first();
         $report = Result::whereHas('student', function ($q) use ($classId) {
                 $q->where('class_id', $classId);
             })
@@ -55,6 +57,8 @@ class ResultController extends Controller
             ->map(function ($studentResults) {
                 return $studentResults->map(function ($res) {
                     return [
+                        'student_name' => $res->student->name,
+                        'admission_number' => $res->student->admission_number,
                         'subject' => $res->subject->name,
                         'ca_score' => $res->ca_score,
                         'exam_score' => $res->exam_score,
@@ -65,7 +69,8 @@ class ResultController extends Controller
                 });
             });
         return response()->json([
-            'class' => $class->name,
+            'class' => $class->name . ' ' . $class->arm,
+            'school' => $school,
             'report' => $report,
         ], 200);
     }

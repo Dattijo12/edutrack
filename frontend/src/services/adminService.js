@@ -29,7 +29,12 @@ const adminService = {
   },
 
   async updateSettings(data) {
-    const res = await api.put('/admin/settings', data);
+    const isMultipart = typeof FormData !== 'undefined' && data instanceof FormData;
+    const res = await api.put('/admin/settings', data, isMultipart ? {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    } : undefined);
     return res.data;
   },
 

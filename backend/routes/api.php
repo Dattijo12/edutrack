@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Route;
 // Public Endpoints
 Route::post('/login', 'App\Http\Controllers\AuthController@login')->name('login');
 Route::get('/verify-result/{hash}', 'App\Http\Controllers\ExamOfficer\BroadsheetController@verifyResult')->name('result.verify');
+Route::get('/school-settings', 'App\Http\Controllers\Admin\SchoolSettingController@show')->name('school.settings.public');
 
 // Authenticated Routes
 Route::middleware('auth:sanctum')->group(function () {

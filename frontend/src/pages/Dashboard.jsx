@@ -1,10 +1,16 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import schoolService from '../services/schoolService';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [school, setSchool] = useState(null);
+
+  useEffect(() => {
+    schoolService.getSettings().then(setSchool).catch(console.error);
+  }, []);
 
   const getRoleName = (role) => {
     switch (role) {
@@ -23,6 +29,34 @@ const Dashboard = () => {
       default: return {};
     }
   };
+
+  const adminMenuItems = [
+    {
+      title: 'School Settings',
+      description: 'Manage school profile, uploads, and grading limits.',
+      path: '/admin/settings',
+    },
+    {
+      title: 'User Management',
+      description: 'Create, edit, and manage staff accounts and roles.',
+      path: '/admin/users',
+    },
+    {
+      title: 'Manage Classes',
+      description: 'Define school grades, levels, and classrooms.',
+      path: '/admin/classes',
+    },
+    {
+      title: 'Manage Subjects',
+      description: 'Define curriculum courses and codes.',
+      path: '/admin/subjects',
+    },
+    {
+      title: 'Manage Students',
+      description: 'Register student profiles and place them into classes.',
+      path: '/admin/students',
+    },
+  ];
 
   return (
     <div style={{ padding: '30px', maxWidth: '1200px', margin: '0 auto' }} className="animate-fade-in">
@@ -43,7 +77,7 @@ const Dashboard = () => {
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
           }}>
-            EduTrack Portal
+            {school?.name || 'EduTrack Portal'}
           </h2>
           <span style={{
             padding: '4px 10px',
@@ -79,46 +113,90 @@ const Dashboard = () => {
 
       {/* Role-Specific Metric Cards & Quick Links */}
       {user?.role === 'admin' && (
-        <div>
-          {/* Metrics */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '40px' }}>
-            <div className="glass-panel" style={{ padding: '25px', position: 'relative', overflow: 'hidden' }}>
-              <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', marginBottom: '8px' }}>Active Teachers</p>
-              <h3 style={{ fontSize: '32px', fontWeight: '800' }}>14</h3>
-              <div style={{ position: 'absolute', bottom: '0', left: '0', right: '0', height: '4px', background: 'hsl(var(--primary))' }}></div>
+        <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: '24px', alignItems: 'start' }}>
+          <aside className="glass-panel" style={{ padding: '24px', position: 'sticky', top: '20px' }}>
+            <div style={{ marginBottom: '18px' }}>
+              <p style={{ fontSize: '11px', color: 'hsl(var(--text-secondary))', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>
+                Super Admin Menu
+              </p>
+              <h3 style={{ fontSize: '20px', fontWeight: '700' }}>Navigation</h3>
             </div>
-            <div className="glass-panel" style={{ padding: '25px', position: 'relative', overflow: 'hidden' }}>
-              <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', marginBottom: '8px' }}>Active Classes</p>
-              <h3 style={{ fontSize: '32px', fontWeight: '800' }}>8</h3>
-              <div style={{ position: 'absolute', bottom: '0', left: '0', right: '0', height: '4px', background: 'hsl(var(--accent))' }}></div>
-            </div>
-            <div className="glass-panel" style={{ padding: '25px', position: 'relative', overflow: 'hidden' }}>
-              <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', marginBottom: '8px' }}>Total Registered Students</p>
-              <h3 style={{ fontSize: '32px', fontWeight: '800' }}>342</h3>
-              <div style={{ position: 'absolute', bottom: '0', left: '0', right: '0', height: '4px', background: 'hsl(var(--secondary))' }}></div>
-            </div>
-          </div>
 
-          {/* Quick Actions */}
-          <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '15px', color: 'hsl(var(--text-secondary))' }}>Administrative Tasks</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
-            <div className="glass-panel" onClick={() => navigate('/admin/classes')} style={{ padding: '25px', cursor: 'pointer', transition: 'transform 0.2s' }}
-                 onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-3px)'}
-                 onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-              <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '8px', color: '#7b93ff' }}>Manage Classes</h4>
-              <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', lineHeight: '1.4' }}>Define school grades, levels, and classrooms.</p>
+            {school?.logo_url && (
+              <div style={{ marginBottom: '18px', padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-dark)', textAlign: 'center' }}>
+                <img
+                  src={school.logo_url}
+                  alt={school.name || 'School logo'}
+                  style={{ maxWidth: '100%', maxHeight: '72px', objectFit: 'contain' }}
+                />
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {adminMenuItems.map((item) => (
+                <button
+                  key={item.path}
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => navigate(item.path)}
+                  style={{ textAlign: 'left', padding: '14px 16px' }}
+                >
+                  <div style={{ fontWeight: '700', marginBottom: '4px' }}>{item.title}</div>
+                  <div style={{ fontSize: '12px', color: 'hsl(var(--text-secondary))', lineHeight: '1.4' }}>{item.description}</div>
+                </button>
+              ))}
             </div>
-            <div className="glass-panel" onClick={() => navigate('/admin/subjects')} style={{ padding: '25px', cursor: 'pointer', transition: 'transform 0.2s' }}
-                 onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-3px)'}
-                 onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-              <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '8px', color: '#7b93ff' }}>Manage Subjects</h4>
-              <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', lineHeight: '1.4' }}>Define curriculum courses and codes.</p>
+          </aside>
+
+          <div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+              <div className="glass-panel" style={{ padding: '25px', position: 'relative', overflow: 'hidden' }}>
+                <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', marginBottom: '8px' }}>Active Teachers</p>
+                <h3 style={{ fontSize: '32px', fontWeight: '800' }}>14</h3>
+                <div style={{ position: 'absolute', bottom: '0', left: '0', right: '0', height: '4px', background: 'hsl(var(--primary))' }}></div>
+              </div>
+              <div className="glass-panel" style={{ padding: '25px', position: 'relative', overflow: 'hidden' }}>
+                <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', marginBottom: '8px' }}>Active Classes</p>
+                <h3 style={{ fontSize: '32px', fontWeight: '800' }}>8</h3>
+                <div style={{ position: 'absolute', bottom: '0', left: '0', right: '0', height: '4px', background: 'hsl(var(--accent))' }}></div>
+              </div>
+              <div className="glass-panel" style={{ padding: '25px', position: 'relative', overflow: 'hidden' }}>
+                <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', marginBottom: '8px' }}>Total Registered Students</p>
+                <h3 style={{ fontSize: '32px', fontWeight: '800' }}>342</h3>
+                <div style={{ position: 'absolute', bottom: '0', left: '0', right: '0', height: '4px', background: 'hsl(var(--secondary))' }}></div>
+              </div>
             </div>
-            <div className="glass-panel" onClick={() => navigate('/admin/students')} style={{ padding: '25px', cursor: 'pointer', transition: 'transform 0.2s' }}
-                 onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-3px)'}
-                 onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-              <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '8px', color: '#7b93ff' }}>Manage Students</h4>
-              <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', lineHeight: '1.4' }}>Register new student profiles and enroll them in classes.</p>
+
+            <div className="glass-panel" style={{ padding: '24px', marginBottom: '24px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px', color: 'hsl(var(--text-secondary))' }}>School Profile</h2>
+              <p style={{ fontSize: '15px', fontWeight: '700', marginBottom: '6px' }}>{school?.name || 'School profile loading...'}</p>
+              <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '13px', lineHeight: '1.6' }}>
+                {school?.address || 'Address not configured yet.'}
+                <br />
+                {school?.phone ? `Phone: ${school.phone}` : 'Phone not configured'}
+                {school?.email ? ` | Email: ${school.email}` : ''}
+              </p>
+            </div>
+
+            <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '15px', color: 'hsl(var(--text-secondary))' }}>Administrative Tasks</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
+              {adminMenuItems.map((item) => (
+                <div
+                  key={item.path}
+                  className="glass-panel"
+                  onClick={() => navigate(item.path)}
+                  style={{ padding: '25px', cursor: 'pointer', transition: 'transform 0.2s' }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-3px)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }}
+                >
+                  <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '8px', color: '#7b93ff' }}>{item.title}</h4>
+                  <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', lineHeight: '1.4' }}>{item.description}</p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
