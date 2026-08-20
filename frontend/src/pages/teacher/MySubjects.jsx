@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { ArrowLeft, BookOpen, Layers, Eye } from 'lucide-react';
 import subjectService from '../../services/subjectService';
 import classService from '../../services/classService';
-import { Link } from 'react-router-dom';
 
 const MySubjects = () => {
   const [subjects, setSubjects] = useState([]);
@@ -28,41 +29,66 @@ const MySubjects = () => {
 
   const getClassName = (classId) => {
     const cls = classes.find(c => c.id === classId);
-    return cls ? cls.name : '';
+    return cls ? cls.name : 'All Classes';
   };
 
   return (
     <div style={{ padding: '30px', maxWidth: '1200px', margin: '0 auto' }} className="animate-fade-in">
       <div className="glass-panel" style={{ padding: '40px' }}>
-        <Link to="/dashboard" style={{ color: '#00f2fe', textDecoration: 'none', fontSize: '14px', marginBottom: '10px', display: 'inline-block' }}>&larr; Back to Dashboard</Link>
-        <h2 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '8px' }}>My Subjects</h2>
-        <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '15px' }}>View student rolls and course outlines for your assigned classes.</p>
+        
+        <div style={{ marginBottom: '30px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '20px' }}>
+          <Link to="/dashboard" className="back-link">
+            <ArrowLeft size={16} /> Back to Dashboard
+          </Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
+            <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(235, 92, 180, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <BookOpen size={22} color="#ff7be1" />
+            </div>
+            <div>
+              <h2 style={{ fontSize: '28px', fontWeight: '700' }}>My Assigned Subjects</h2>
+              <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '14px', marginTop: '2px' }}>
+                Course offerings and assigned student rolls.
+              </p>
+            </div>
+          </div>
+        </div>
 
         {loading ? (
-          <p style={{ textAlign: 'center', color: 'hsl(var(--text-secondary))', padding: '40px' }}>Loading subjects...</p>
+          <div className="page-loading">
+            <span className="spinner"></span>
+            <p>Loading assigned subjects...</p>
+          </div>
         ) : subjects.length === 0 ? (
-          <div style={{ padding: '60px 20px', textAlign: 'center', background: 'rgba(0,0,0,0.15)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)' }}>
-            <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '16px' }}>No subjects assigned.</p>
+          <div className="empty-state">
+            <BookOpen size={48} style={{ opacity: 0.3, marginBottom: '12px' }} />
+            <p>No subjects assigned to your account yet.</p>
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead style={{ background: 'rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+          <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border-dark)' }}>
+            <table className="data-table">
+              <thead>
                 <tr>
-                  <th style={{ padding: '16px', fontSize: '12px', color: 'hsl(var(--text-secondary))', textTransform: 'uppercase', letterSpacing: '1px' }}>Subject</th>
-                  <th style={{ padding: '16px', fontSize: '12px', color: 'hsl(var(--text-secondary))', textTransform: 'uppercase', letterSpacing: '1px' }}>Code</th>
-                  <th style={{ padding: '16px', fontSize: '12px', color: 'hsl(var(--text-secondary))', textTransform: 'uppercase', letterSpacing: '1px' }}>Class</th>
-                  <th style={{ padding: '16px', fontSize: '12px', color: 'hsl(var(--text-secondary))', textTransform: 'uppercase', letterSpacing: '1px' }}>Actions</th>
+                  <th>Subject Code</th>
+                  <th>Subject Name</th>
+                  <th>Class Level</th>
+                  <th style={{ textAlign: 'right' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {subjects.map((sub) => (
-                  <tr key={sub.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <td style={{ padding: '12px 16px' }}>{sub.name}</td>
-                    <td style={{ padding: '12px 16px' }}>{sub.code || 'N/A'}</td>
-                    <td style={{ padding: '12px 16px' }}>{getClassName(sub.class_id)}</td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <Link to={`/teacher/subject/${sub.id}`} style={{ color: '#00f2fe', textDecoration: 'underline' }}>View Students / Outline</Link>
+                  <tr key={sub.id}>
+                    <td style={{ fontWeight: '700', color: 'hsl(var(--accent))' }}>{sub.code || 'N/A'}</td>
+                    <td style={{ fontWeight: '600' }}>{sub.name}</td>
+                    <td>
+                      <span className="badge badge-teacher">
+                        <Layers size={12} style={{ display: 'inline', marginRight: '4px' }} />
+                        {getClassName(sub.class_id)}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <Link to={`/teacher/results-entry?subject=${sub.id}`} className="btn-edit">
+                        <Eye size={14} /> Open Gradebook
+                      </Link>
                     </td>
                   </tr>
                 ))}

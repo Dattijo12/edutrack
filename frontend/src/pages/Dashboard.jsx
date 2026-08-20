@@ -1,283 +1,282 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { 
+  GraduationCap, Users, BookOpen, Layers, Settings, UserCheck, 
+  FileCheck2, BarChart3, Sparkles, Building2, ClipboardList, AlertCircle, 
+  ChevronRight
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import schoolService from '../services/schoolService';
+import { useSchool } from '../context/SchoolContext';
 
 const Dashboard = () => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
+  const { school } = useSchool();
   const navigate = useNavigate();
-  const [school, setSchool] = useState(null);
-
-  useEffect(() => {
-    schoolService.getSettings().then(setSchool).catch(console.error);
-  }, []);
 
   const getRoleName = (role) => {
     switch (role) {
-      case 'admin': return 'Administrator';
-      case 'teacher': return 'Teacher';
+      case 'admin': return 'Super Administrator';
+      case 'teacher': return 'Subject Teacher';
       case 'exam_officer': return 'Exam Officer';
+      case 'bursar': return 'Bursar';
+      case 'form_master': return 'Form Master';
       default: return 'User';
-    }
-  };
-
-  const getRoleBadgeStyle = (role) => {
-    switch (role) {
-      case 'admin': return { background: 'rgba(92, 124, 250, 0.15)', color: '#7b93ff', border: '1px solid rgba(92, 124, 250, 0.3)' };
-      case 'teacher': return { background: 'rgba(235, 92, 180, 0.15)', color: '#ff7be1', border: '1px solid rgba(235, 92, 180, 0.3)' };
-      case 'exam_officer': return { background: 'rgba(0, 242, 254, 0.12)', color: '#00f2fe', border: '1px solid rgba(0, 242, 254, 0.25)' };
-      default: return {};
     }
   };
 
   const adminMenuItems = [
     {
-      title: 'School Settings',
-      description: 'Manage school profile, uploads, and grading limits.',
+      title: 'School Configuration',
+      description: 'Manage school details, logo branding, grading scale, and score limits.',
       path: '/admin/settings',
+      icon: Settings
     },
     {
-      title: 'User Management',
-      description: 'Create, edit, and manage staff accounts and roles.',
+      title: 'Staff Management',
+      description: 'Create accounts and assign classes and subjects to teachers.',
       path: '/admin/users',
+      icon: Users
     },
     {
-      title: 'Manage Classes',
-      description: 'Define school grades, levels, and classrooms.',
+      title: 'Classes & Arms',
+      description: 'Structure grades, class arms, and assign Form Masters.',
       path: '/admin/classes',
+      icon: Layers
     },
     {
-      title: 'Manage Subjects',
-      description: 'Define curriculum courses and codes.',
+      title: 'Subject Curriculum',
+      description: 'Define course offerings, subject codes, and academic categories.',
       path: '/admin/subjects',
+      icon: BookOpen
     },
     {
-      title: 'Manage Students',
-      description: 'Register student profiles and place them into classes.',
+      title: 'Student Directory',
+      description: 'Register student profiles and manage class enrollments.',
       path: '/admin/students',
+      icon: GraduationCap
     },
   ];
 
   return (
-    <div style={{ padding: '30px', maxWidth: '1200px', margin: '0 auto' }} className="animate-fade-in">
+    <div style={{ maxWidth: '1240px', margin: '0 auto' }} className="animate-fade-in">
       
-      {/* Navigation Header */}
-      <header className="glass-panel" style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '20px 30px',
-        marginBottom: '40px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-          <h2 style={{
-            fontSize: '22px',
-            fontWeight: '700',
-            background: 'linear-gradient(135deg, #fff 0%, hsl(var(--text-secondary)) 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-          }}>
-            {school?.name || 'EduTrack Portal'}
-          </h2>
-          <span style={{
-            padding: '4px 10px',
-            borderRadius: '20px',
-            fontSize: '12px',
-            fontWeight: '600',
-            ...getRoleBadgeStyle(user?.role)
-          }}>
-            {getRoleName(user?.role)}
-          </span>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <div style={{ textAlign: 'right' }}>
-            <p style={{ fontSize: '14px', fontWeight: '600', color: 'hsl(var(--text-primary))' }}>{user?.name}</p>
-            <p style={{ fontSize: '11px', color: 'hsl(var(--text-secondary))' }}>{user?.email}</p>
+      {/* Main Hero Banner */}
+      <section style={{ marginBottom: '28px' }}>
+        <div className="glass-panel" style={{ padding: '24px 30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+          <div>
+            <h1 style={{ fontSize: '26px', fontWeight: '800', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              Welcome back, {user?.name ? user.name.split(' ')[0] : 'User'}! <Sparkles size={24} color="#7b93ff" />
+            </h1>
+            <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '14px' }}>
+              Here is your administrative overview and quick access operations for <strong>{school?.name || 'EduTrack System'}</strong>.
+            </p>
           </div>
-          <button onClick={logout} className="btn-logout">
-            Sign Out
-          </button>
-        </div>
-      </header>
 
-      {/* Main Hero Summary */}
-      <section style={{ marginBottom: '40px' }}>
-        <h1 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '8px' }}>
-          Welcome back, {user?.name.split(' ')[0]}!
-        </h1>
-        <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '15px' }}>
-          Here is a quick summary of what is happening in the system today.
-        </p>
+          {school?.logo_url && (
+            <div style={{ padding: '8px 16px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-dark)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <img 
+                src={school.logo_url} 
+                alt={school.name} 
+                style={{ height: '42px', objectFit: 'contain' }}
+              />
+              <div style={{ textTransform: 'uppercase', fontSize: '11px', fontWeight: '700', letterSpacing: '1px', color: '#7b93ff' }}>
+                Official Emblem
+              </div>
+            </div>
+          )}
+        </div>
       </section>
 
-      {/* Role-Specific Metric Cards & Quick Links */}
+      {/* Super Admin Dashboard View */}
       {user?.role === 'admin' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: '24px', alignItems: 'start' }}>
-          <aside className="glass-panel" style={{ padding: '24px', position: 'sticky', top: '20px' }}>
-            <div style={{ marginBottom: '18px' }}>
-              <p style={{ fontSize: '11px', color: 'hsl(var(--text-secondary))', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>
-                Super Admin Menu
-              </p>
-              <h3 style={{ fontSize: '20px', fontWeight: '700' }}>Navigation</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          
+          {/* Stat Cards Overview */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
+            
+            <div className="glass-panel stat-card">
+              <p className="stat-label">Registered Staff</p>
+              <h3 className="stat-value">14</h3>
+              <UserCheck className="stat-bg-icon" size={90} color="#7b93ff" />
+              <div className="stat-bar" style={{ background: 'hsl(var(--primary))' }}></div>
             </div>
 
-            {school?.logo_url && (
-              <div style={{ marginBottom: '18px', padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-dark)', textAlign: 'center' }}>
-                <img
-                  src={school.logo_url}
-                  alt={school.name || 'School logo'}
-                  style={{ maxWidth: '100%', maxHeight: '72px', objectFit: 'contain' }}
-                />
-              </div>
-            )}
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {adminMenuItems.map((item) => (
-                <button
-                  key={item.path}
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => navigate(item.path)}
-                  style={{ textAlign: 'left', padding: '14px 16px' }}
-                >
-                  <div style={{ fontWeight: '700', marginBottom: '4px' }}>{item.title}</div>
-                  <div style={{ fontSize: '12px', color: 'hsl(var(--text-secondary))', lineHeight: '1.4' }}>{item.description}</div>
-                </button>
-              ))}
+            <div className="glass-panel stat-card">
+              <p className="stat-label">Active Classes</p>
+              <h3 className="stat-value">8</h3>
+              <Layers className="stat-bg-icon" size={90} color="#00f2fe" />
+              <div className="stat-bar" style={{ background: 'hsl(var(--accent))' }}></div>
             </div>
-          </aside>
 
+            <div className="glass-panel stat-card">
+              <p className="stat-label">Total Enrolled Students</p>
+              <h3 className="stat-value">342</h3>
+              <GraduationCap className="stat-bg-icon" size={90} color="#ff7be1" />
+              <div className="stat-bar" style={{ background: 'hsl(var(--secondary))' }}></div>
+            </div>
+
+          </div>
+
+          {/* School Profile Information */}
+          <div className="glass-panel" style={{ padding: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+              <Building2 size={20} color="#7b93ff" />
+              <h2 style={{ fontSize: '18px', fontWeight: '700' }}>School Profile & Configuration</h2>
+            </div>
+            <p style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px' }}>{school?.name || 'School profile loading...'}</p>
+            <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '13px', lineHeight: '1.6' }}>
+              {school?.address || 'Address not configured yet.'}
+              <br />
+              {school?.phone ? `Phone: ${school.phone}` : ''}
+              {school?.email ? ` | Email: ${school.email}` : ''}
+            </p>
+          </div>
+
+          {/* Module Quick Actions */}
           <div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '24px' }}>
-              <div className="glass-panel" style={{ padding: '25px', position: 'relative', overflow: 'hidden' }}>
-                <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', marginBottom: '8px' }}>Active Teachers</p>
-                <h3 style={{ fontSize: '32px', fontWeight: '800' }}>14</h3>
-                <div style={{ position: 'absolute', bottom: '0', left: '0', right: '0', height: '4px', background: 'hsl(var(--primary))' }}></div>
-              </div>
-              <div className="glass-panel" style={{ padding: '25px', position: 'relative', overflow: 'hidden' }}>
-                <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', marginBottom: '8px' }}>Active Classes</p>
-                <h3 style={{ fontSize: '32px', fontWeight: '800' }}>8</h3>
-                <div style={{ position: 'absolute', bottom: '0', left: '0', right: '0', height: '4px', background: 'hsl(var(--accent))' }}></div>
-              </div>
-              <div className="glass-panel" style={{ padding: '25px', position: 'relative', overflow: 'hidden' }}>
-                <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', marginBottom: '8px' }}>Total Registered Students</p>
-                <h3 style={{ fontSize: '32px', fontWeight: '800' }}>342</h3>
-                <div style={{ position: 'absolute', bottom: '0', left: '0', right: '0', height: '4px', background: 'hsl(var(--secondary))' }}></div>
-              </div>
-            </div>
-
-            <div className="glass-panel" style={{ padding: '24px', marginBottom: '24px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px', color: 'hsl(var(--text-secondary))' }}>School Profile</h2>
-              <p style={{ fontSize: '15px', fontWeight: '700', marginBottom: '6px' }}>{school?.name || 'School profile loading...'}</p>
-              <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '13px', lineHeight: '1.6' }}>
-                {school?.address || 'Address not configured yet.'}
-                <br />
-                {school?.phone ? `Phone: ${school.phone}` : 'Phone not configured'}
-                {school?.email ? ` | Email: ${school.email}` : ''}
-              </p>
-            </div>
-
-            <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '15px', color: 'hsl(var(--text-secondary))' }}>Administrative Tasks</h2>
+            <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '16px', color: 'hsl(var(--text-secondary))' }}>
+              System Management Modules
+            </h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
-              {adminMenuItems.map((item) => (
-                <div
-                  key={item.path}
-                  className="glass-panel"
-                  onClick={() => navigate(item.path)}
-                  style={{ padding: '25px', cursor: 'pointer', transition: 'transform 0.2s' }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-3px)';
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                  }}
-                >
-                  <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '8px', color: '#7b93ff' }}>{item.title}</h4>
-                  <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', lineHeight: '1.4' }}>{item.description}</p>
-                </div>
-              ))}
+              {adminMenuItems.map((item) => {
+                const IconComponent = item.icon;
+                return (
+                  <div
+                    key={item.path}
+                    className="glass-panel nav-card"
+                    onClick={() => navigate(item.path)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <IconComponent className="nav-card-icon" size={80} color="#7b93ff" />
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                      <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(92, 124, 250, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <IconComponent size={20} color="#7b93ff" />
+                      </div>
+                      <ChevronRight size={18} color="hsl(var(--text-secondary))" />
+                    </div>
+                    <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px' }}>{item.title}</h4>
+                    <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', lineHeight: '1.4' }}>{item.description}</p>
+                  </div>
+                );
+              })}
             </div>
           </div>
+
         </div>
       )}
 
-      {user?.role === 'teacher' && (
+      {/* Teacher / Form Master Dashboard View */}
+      {(user?.role === 'teacher' || user?.role === 'form_master') && (
         <div>
-          {/* Metrics */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '40px' }}>
-            <div className="glass-panel" style={{ padding: '25px', position: 'relative', overflow: 'hidden' }}>
-              <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', marginBottom: '8px' }}>My Assigned Classes</p>
-              <h3 style={{ fontSize: '32px', fontWeight: '800' }}>3</h3>
-              <div style={{ position: 'absolute', bottom: '0', left: '0', right: '0', height: '4px', background: 'hsl(var(--secondary))' }}></div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '32px' }}>
+            
+            <div className="glass-panel stat-card">
+              <p className="stat-label">Assigned Classes</p>
+              <h3 className="stat-value">3</h3>
+              <Layers className="stat-bg-icon" size={90} color="#ff7be1" />
+              <div className="stat-bar" style={{ background: 'hsl(var(--secondary))' }}></div>
             </div>
-            <div className="glass-panel" style={{ padding: '25px', position: 'relative', overflow: 'hidden' }}>
-              <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', marginBottom: '8px' }}>My Active Subjects</p>
-              <h3 style={{ fontSize: '32px', fontWeight: '800' }}>5</h3>
-              <div style={{ position: 'absolute', bottom: '0', left: '0', right: '0', height: '4px', background: 'hsl(var(--primary))' }}></div>
+
+            <div className="glass-panel stat-card">
+              <p className="stat-label">Active Subjects</p>
+              <h3 className="stat-value">5</h3>
+              <BookOpen className="stat-bg-icon" size={90} color="#7b93ff" />
+              <div className="stat-bar" style={{ background: 'hsl(var(--primary))' }}></div>
             </div>
-            <div className="glass-panel" style={{ padding: '25px', position: 'relative', overflow: 'hidden' }}>
-              <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', marginBottom: '8px' }}>Results Inputted</p>
-              <h3 style={{ fontSize: '32px', fontWeight: '800' }}>112 / 140</h3>
-              <div style={{ position: 'absolute', bottom: '0', left: '0', right: '0', height: '4px', background: 'hsl(var(--accent))' }}></div>
+
+            <div className="glass-panel stat-card">
+              <p className="stat-label">Results Progress</p>
+              <h3 className="stat-value">112 / 140</h3>
+              <ClipboardList className="stat-bg-icon" size={90} color="#00f2fe" />
+              <div className="stat-bar" style={{ background: 'hsl(var(--accent))' }}></div>
             </div>
+
           </div>
 
-          {/* Quick Actions */}
-          <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '15px', color: 'hsl(var(--text-secondary))' }}>Teacher Operations</h2>
+          <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '16px', color: 'hsl(var(--text-secondary))' }}>Teacher Operations</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
-            <div className="glass-panel" onClick={() => navigate('/teacher/results-entry')} style={{ padding: '25px', cursor: 'pointer', transition: 'transform 0.2s' }}
-                 onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-3px)'}
-                 onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-              <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '8px', color: '#ff7be1' }}>Gradebook (Input Results)</h4>
+            <div className="glass-panel nav-card" onClick={() => navigate('/teacher/results-entry')} style={{ cursor: 'pointer' }}>
+              <ClipboardList className="nav-card-icon" size={80} color="#ff7be1" />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(235, 92, 180, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <ClipboardList size={20} color="#ff7be1" />
+                </div>
+                <ChevronRight size={18} color="hsl(var(--text-secondary))" />
+              </div>
+              <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px' }}>Gradebook (Input Results)</h4>
               <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', lineHeight: '1.4' }}>Enter CA scores and exam marks, calculate totals, and submit them for review.</p>
             </div>
-            <div className="glass-panel" onClick={() => navigate('/teacher/my-subjects')} style={{ padding: '25px', cursor: 'pointer', transition: 'transform 0.2s' }}
-                 onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-3px)'}
-                 onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-              <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '8px', color: '#ff7be1' }}>My Subjects</h4>
-              <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', lineHeight: '1.4' }}>View student rolls and course outlines for your assigned classes.</p>
+
+            <div className="glass-panel nav-card" onClick={() => navigate('/teacher/my-subjects')} style={{ cursor: 'pointer' }}>
+              <BookOpen className="nav-card-icon" size={80} color="#ff7be1" />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(235, 92, 180, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <BookOpen size={20} color="#ff7be1" />
+                </div>
+                <ChevronRight size={18} color="hsl(var(--text-secondary))" />
+              </div>
+              <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px' }}>My Assigned Subjects</h4>
+              <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', lineHeight: '1.4' }}>View student rosters and course details for your assigned classes.</p>
             </div>
           </div>
         </div>
       )}
 
+      {/* Exam Officer Dashboard View */}
       {user?.role === 'exam_officer' && (
         <div>
-          {/* Metrics */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '40px' }}>
-            <div className="glass-panel" style={{ padding: '25px', position: 'relative', overflow: 'hidden' }}>
-              <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', marginBottom: '8px' }}>Pending Approvals</p>
-              <h3 style={{ fontSize: '32px', fontWeight: '800', color: '#fffa7b' }}>28</h3>
-              <div style={{ position: 'absolute', bottom: '0', left: '0', right: '0', height: '4px', background: '#fffa7b' }}></div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '32px' }}>
+            
+            <div className="glass-panel stat-card">
+              <p className="stat-label">Pending Approvals</p>
+              <h3 className="stat-value" style={{ color: '#fffa7b' }}>28</h3>
+              <FileCheck2 className="stat-bg-icon" size={90} color="#fffa7b" />
+              <div className="stat-bar" style={{ background: '#fffa7b' }}></div>
             </div>
-            <div className="glass-panel" style={{ padding: '25px', position: 'relative', overflow: 'hidden' }}>
-              <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', marginBottom: '8px' }}>Approved Results (Term)</p>
-              <h3 style={{ fontSize: '32px', fontWeight: '800' }}>384</h3>
-              <div style={{ position: 'absolute', bottom: '0', left: '0', right: '0', height: '4px', background: 'hsl(var(--primary))' }}></div>
+
+            <div className="glass-panel stat-card">
+              <p className="stat-label">Approved Results (Term)</p>
+              <h3 className="stat-value">384</h3>
+              <BarChart3 className="stat-bg-icon" size={90} color="#00f2fe" />
+              <div className="stat-bar" style={{ background: 'hsl(var(--primary))' }}></div>
             </div>
-            <div className="glass-panel" style={{ padding: '25px', position: 'relative', overflow: 'hidden' }}>
-              <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', marginBottom: '8px' }}>Rejections / Discrepancies</p>
-              <h3 style={{ fontSize: '32px', fontWeight: '800' }}>3</h3>
-              <div style={{ position: 'absolute', bottom: '0', left: '0', right: '0', height: '4px', background: '#ff4b4b' }}></div>
+
+            <div className="glass-panel stat-card">
+              <p className="stat-label">Discrepancies</p>
+              <h3 className="stat-value" style={{ color: '#ff4b4b' }}>3</h3>
+              <AlertCircle className="stat-bg-icon" size={90} color="#ff4b4b" />
+              <div className="stat-bar" style={{ background: '#ff4b4b' }}></div>
             </div>
+
           </div>
 
-          {/* Quick Actions */}
-          <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '15px', color: 'hsl(var(--text-secondary))' }}>Exam Office Operations</h2>
+          <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '16px', color: 'hsl(var(--text-secondary))' }}>Exam Office Operations</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
-            <div className="glass-panel" onClick={() => navigate('/exam-officer/approvals')} style={{ padding: '25px', cursor: 'pointer', transition: 'transform 0.2s' }}
-                 onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-3px)'}
-                 onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-              <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '8px', color: '#00f2fe' }}>Approve Pending Results</h4>
+            
+            <div className="glass-panel nav-card" onClick={() => navigate('/exam-officer/approvals')} style={{ cursor: 'pointer' }}>
+              <FileCheck2 className="nav-card-icon" size={80} color="#00f2fe" />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(0, 242, 254, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <FileCheck2 size={20} color="#00f2fe" />
+                </div>
+                <ChevronRight size={18} color="hsl(var(--text-secondary))" />
+              </div>
+              <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px' }}>Approve Pending Results</h4>
               <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', lineHeight: '1.4' }}>Review student grades submitted by teachers, verify parameters, and mark them approved.</p>
             </div>
-            <div className="glass-panel" onClick={() => navigate('/exam-officer/reports')} style={{ padding: '25px', cursor: 'pointer', transition: 'transform 0.2s' }}
-                 onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-3px)'}
-                 onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-              <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '8px', color: '#00f2fe' }}>Academic Class Reports</h4>
-              <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', lineHeight: '1.4' }}>Generate, print, and export terminal report cards and sheet summary reports for classes.</p>
+
+            <div className="glass-panel nav-card" onClick={() => navigate('/exam-officer/reports')} style={{ cursor: 'pointer' }}>
+              <BarChart3 className="nav-card-icon" size={80} color="#00f2fe" />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(0, 242, 254, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <BarChart3 size={20} color="#00f2fe" />
+                </div>
+                <ChevronRight size={18} color="hsl(var(--text-secondary))" />
+              </div>
+              <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px' }}>Academic Class Reports</h4>
+              <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', lineHeight: '1.4' }}>Generate, print, and export terminal report cards and broadsheet summary reports.</p>
             </div>
+
           </div>
         </div>
       )}

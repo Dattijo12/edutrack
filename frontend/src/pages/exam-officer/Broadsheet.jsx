@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { ArrowLeft, FileSpreadsheet, FileText, Printer, Lock, CheckCircle2 } from 'lucide-react';
 import examOfficerService from '../../services/examOfficerService';
 import classService from '../../services/classService';
 import studentService from '../../services/studentService';
@@ -15,7 +17,6 @@ const Broadsheet = () => {
   const [selectedStudentId, setSelectedStudentId] = useState('');
 
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
   useEffect(() => {
     classService.getAll().then(setClasses).catch(console.error);
@@ -32,14 +33,14 @@ const Broadsheet = () => {
   const handleGenerateBroadsheet = async () => {
     if (!selectedClass) return;
     setLoading(true);
-    setError('');
     setReportCardData(null);
     try {
       const data = await examOfficerService.getBroadsheet(selectedClass);
       setBroadsheetData(data);
+      toast.success('Broadsheet generated!');
     } catch (err) {
       console.error(err);
-      setError('Failed to generate class broadsheet.');
+      toast.error('Failed to generate class broadsheet.');
     } finally {
       setLoading(false);
     }
@@ -48,17 +49,18 @@ const Broadsheet = () => {
   const handleGenerateReportCard = async () => {
     if (!selectedStudentId) return;
     setLoading(true);
-    setError('');
     setBroadsheetData(null);
     try {
       const data = await examOfficerService.getReportCard(selectedStudentId);
       setReportCardData(data);
+      toast.success('Report card generated!');
     } catch (err) {
       console.error(err);
       if (err?.response?.data?.locked) {
         setReportCardData({ locked: true, message: err.response.data.message, student: err.response.data.student });
+        toast.warning('Report card locked due to outstanding fee balance.');
       } else {
-        setError('Failed to generate report card.');
+        toast.error('Failed to generate report card.');
       }
     } finally {
       setLoading(false);
@@ -74,33 +76,33 @@ const Broadsheet = () => {
       
       {/* Control Panel (Hidden on Print) */}
       <div className="glass-panel no-print" style={{ padding: '35px', marginBottom: '30px' }}>
-        <Link to="/dashboard" style={{ color: '#00f2fe', textDecoration: 'none', fontSize: '14px', marginBottom: '15px', display: 'inline-block' }}>
-          &larr; Back to Dashboard
+        <Link to="/dashboard" className="back-link">
+          <ArrowLeft size={16} /> Back to Dashboard
         </Link>
-        <h2 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '8px' }}>1-Click Broadsheets & Student Report Cards</h2>
-        <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '14px', marginBottom: '25px' }}>
+        <h2 style={{ fontSize: '28px', fontWeight: '700', marginTop: '12px', marginBottom: '8px' }}>1-Click Broadsheets & Student Report Cards</h2>
+        <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '14px', marginBottom: '24px' }}>
           Generate print-ready A4 Broadsheets or individual Report Cards featuring WAEC/NECO grades, fee clearance gatekeeper, and QR code verification.
         </p>
 
         {/* View Mode Switcher */}
-        <div style={{ display: 'flex', gap: '15px', marginBottom: '25px' }}>
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
           <button 
             onClick={() => setViewMode('broadsheet')} 
             className={viewMode === 'broadsheet' ? 'btn-primary' : 'btn-secondary'}
           >
-            📊 Class Broadsheet Grid (A4 Landscape)
+            <FileSpreadsheet size={16} /> Class Broadsheet Grid (A4 Landscape)
           </button>
           <button 
             onClick={() => setViewMode('report_card')} 
             className={viewMode === 'report_card' ? 'btn-primary' : 'btn-secondary'}
           >
-            📜 Individual Report Card
+            <FileText size={16} /> Individual Student Report Card
           </button>
         </div>
 
         {/* Filters */}
-        <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'center', background: 'rgba(0,0,0,0.15)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-dark)' }}>
-          <select className="glass-input" style={{ maxWidth: '250px' }} value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)}>
+        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', background: 'rgba(0,0,0,0.15)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-dark)' }}>
+          <select className="glass-input" style={{ maxWidth: '260px' }} value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)}>
             <option value="" style={{ color: '#000' }}>Select Class</option>
             {classes.map(c => (
               <option key={c.id} value={c.id} style={{ color: '#000' }}>{c.name} {c.arm}</option>
@@ -118,27 +120,21 @@ const Broadsheet = () => {
 
           {viewMode === 'broadsheet' ? (
             <button onClick={handleGenerateBroadsheet} className="btn-primary" disabled={!selectedClass || loading}>
-              {loading ? 'Generating...' : '⚡ Generate Broadsheet'}
+              {loading ? <><span className="spinner spinner-sm"></span> Generating...</> : <><FileSpreadsheet size={16} /> Generate Broadsheet</>}
             </button>
           ) : (
             <button onClick={handleGenerateReportCard} className="btn-primary" disabled={!selectedStudentId || loading}>
-              {loading ? 'Generating...' : '⚡ Generate Report Card'}
+              {loading ? <><span className="spinner spinner-sm"></span> Generating...</> : <><FileText size={16} /> Generate Report Card</>}
             </button>
           )}
 
           {(broadsheetData || reportCardData) && (
             <button onClick={handlePrint} className="btn-secondary" style={{ marginLeft: 'auto' }}>
-              🖨️ Print / Export PDF
+              <Printer size={16} /> Print / Export PDF
             </button>
           )}
         </div>
       </div>
-
-      {error && (
-        <div className="no-print" style={{ padding: '14px', borderRadius: '8px', background: 'rgba(255,75,75,0.15)', color: '#ff4b4b', marginBottom: '20px' }}>
-          ❌ {error}
-        </div>
-      )}
 
       {/* PRINTABLE BROADSHEET AREA */}
       {viewMode === 'broadsheet' && broadsheetData && (
@@ -197,8 +193,9 @@ const Broadsheet = () => {
       {viewMode === 'report_card' && reportCardData && (
         reportCardData.locked ? (
           <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', border: '1px solid #ff4b4b', background: 'rgba(255,75,75,0.1)' }}>
+            <Lock size={48} color="#ff4b4b" style={{ marginBottom: '12px' }} />
             <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#ff4b4b', marginBottom: '10px' }}>
-              🔒 REPORT CARD LOCKED (FEE GATEKEEPER)
+              REPORT CARD LOCKED (FEE GATEKEEPER)
             </h2>
             <p style={{ fontSize: '15px', color: 'hsl(var(--text-primary))', maxWidth: '600px', margin: '0 auto 20px auto' }}>
               {reportCardData.message}
@@ -212,10 +209,19 @@ const Broadsheet = () => {
             
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #000', paddingBottom: '20px', marginBottom: '20px' }}>
-              <div>
-                <h1 style={{ fontSize: '26px', fontWeight: '800', textTransform: 'uppercase', margin: 0 }}>{reportCardData.school?.name}</h1>
-                <p style={{ fontSize: '12px', margin: '2px 0' }}>{reportCardData.school?.address}</p>
-                <p style={{ fontSize: '12px', margin: 0 }}>Phone: {reportCardData.school?.phone} | Email: {reportCardData.school?.email}</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                {reportCardData.school?.logo_url && (
+                  <img 
+                    src={reportCardData.school.logo_url} 
+                    alt={reportCardData.school.name} 
+                    style={{ maxHeight: '64px', objectFit: 'contain' }} 
+                  />
+                )}
+                <div>
+                  <h1 style={{ fontSize: '24px', fontWeight: '800', textTransform: 'uppercase', margin: 0 }}>{reportCardData.school?.name}</h1>
+                  <p style={{ fontSize: '12px', margin: '2px 0' }}>{reportCardData.school?.address}</p>
+                  <p style={{ fontSize: '12px', margin: 0 }}>Phone: {reportCardData.school?.phone} | Email: {reportCardData.school?.email}</p>
+                </div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <h3 style={{ fontSize: '18px', fontWeight: '800', textTransform: 'uppercase', color: '#1a237e' }}>STUDENT REPORT CARD</h3>
@@ -268,7 +274,7 @@ const Broadsheet = () => {
 
               <div style={{ border: '1px solid #000', padding: '15px', borderRadius: '4px', textAlign: 'center', fontSize: '13px' }}>
                 <p><strong>Total Marks:</strong> {reportCardData.summary?.total_marks}</p>
-                <p style={{ marginTop: '6px', fontSize: '16px', fontWeight: '800', color: '#1a237e' }}>Average: {reportCardData.summary?.average}%</p>
+                <p style={{ marginTop: '6px', fontSize: '16px', fontWeight: '800', color: '#1a237e' }}>Average: {reportCardCardData.summary?.average}%</p>
               </div>
             </div>
 
@@ -276,7 +282,7 @@ const Broadsheet = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '2px solid #000', paddingTop: '15px', marginTop: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                 <div style={{ border: '2px solid #000', padding: '6px', background: '#f5f5f5', borderRadius: '4px', textAlign: 'center', width: '80px', height: '80px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ fontSize: '28px' }}>🏁</span>
+                  <CheckCircle2 size={32} color="#0d9c3f" />
                   <span style={{ fontSize: '8px', fontWeight: 'bold', marginTop: '2px' }}>QR VERIFIED</span>
                 </div>
                 <div>

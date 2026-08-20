@@ -30,11 +30,9 @@ const adminService = {
 
   async updateSettings(data) {
     const isMultipart = typeof FormData !== 'undefined' && data instanceof FormData;
-    const res = await api.put('/admin/settings', data, isMultipart ? {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    } : undefined);
+    const res = isMultipart 
+      ? await api.post('/admin/settings', data, { headers: { 'Content-Type': 'multipart/form-data' } })
+      : await api.put('/admin/settings', data);
     return res.data;
   },
 

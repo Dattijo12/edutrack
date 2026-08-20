@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { ArrowLeft, UserPlus, Pencil, Trash2, GraduationCap, Save, X } from 'lucide-react';
 import studentService from '../../services/studentService';
 import classService from '../../services/classService';
 
@@ -7,14 +9,14 @@ const Students = () => {
   const [students, setStudents] = useState([]);
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
-  const [currentStudent, setCurrentStudent] = useState(null); // For editing
+  const [currentStudent, setCurrentStudent] = useState(null);
   
   const [name, setName] = useState('');
   const [admissionNumber, setAdmissionNumber] = useState('');
   const [classId, setClassId] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     fetchInitialData();
@@ -28,7 +30,8 @@ const Students = () => {
       setStudents(studentData);
       setClasses(classData);
     } catch (err) {
-      setError('Failed to load students or classes data.');
+      console.error(err);
+      toast.error('Failed to load students or classes data.');
     } finally {
       setLoading(false);
     }
@@ -39,7 +42,6 @@ const Students = () => {
     setName(student ? student.name : '');
     setAdmissionNumber(student ? student.admission_number : '');
     setClassId(student ? student.class_id : '');
-    setError('');
     setShowModal(true);
   };
 
@@ -53,7 +55,6 @@ const Students = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
     setSubmitting(true);
 
     try {
@@ -64,232 +65,195 @@ const Students = () => {
       };
 
       if (currentStudent) {
-        // Edit Student
         await studentService.update(currentStudent.id, payload);
+        toast.success(`Student profile for "${name}" updated!`);
       } else {
-        // Add Student
         await studentService.create(payload);
+        toast.success(`Student "${name}" registered successfully!`);
       }
       
-      // Refresh list
       const updatedStudents = await studentService.getAll();
       setStudents(updatedStudents);
       handleCloseModal();
     } catch (err) {
-      setError(
-        err.response?.data?.message || 
-        err.response?.data?.errors?.admission_number?.[0] || 
-        err.response?.data?.errors?.class_id?.[0] || 
-        'Failed to save student.'
-      );
+      console.error(err);
+      const msg = err.response?.data?.message || err.response?.data?.errors?.admission_number?.[0] || err.response?.data?.errors?.class_id?.[0] || 'Failed to save student.';
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this student? All associated results will be deleted.')) return;
-    setError('');
+  const handleDelete = async (id, studentName) => {
+    if (!window.confirm(`Are you sure you want to delete student "${studentName}"? All associated grades will be deleted.`)) return;
+    setDeletingId(id);
 
     try {
       await studentService.delete(id);
+      toast.success(`Student "${studentName}" deleted.`);
       const updatedStudents = await studentService.getAll();
       setStudents(updatedStudents);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to delete student.');
+      console.error(err);
+      toast.error(err.response?.data?.message || 'Failed to delete student.');
+    } finally {
+      setDeletingId(null);
     }
   };
 
   return (
-    <div style={{ padding: '30px', maxWidth: '1000px', margin: '0 auto' }} className="animate-fade-in">
-      {/* Navigation Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-        <div>
-          <Link to="/dashboard" style={{ color: 'hsl(var(--text-secondary))', textDecoration: 'none', fontSize: '14px' }}>
-            &larr; Back to Dashboard
+    <div style={{ padding: '30px', maxWidth: '1050px', margin: '0 auto' }} className="animate-fade-in">
+      <div className="glass-panel" style={{ padding: '40px' }}>
+        
+        {/* Navigation Header */}
+        <div style={{ marginBottom: '30px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '20px' }}>
+          <Link to="/dashboard" className="back-link">
+            <ArrowLeft size={16} /> Back to Dashboard
           </Link>
-          <h1 style={{ fontSize: '28px', fontWeight: '700', marginTop: '10px' }}>Manage Students</h1>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', flexWrap: 'wrap', gap: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(235, 92, 180, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <GraduationCap size={22} color="#ff7be1" />
+              </div>
+              <div>
+                <h1 style={{ fontSize: '28px', fontWeight: '700' }}>Student Directory</h1>
+                <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '14px', marginTop: '2px' }}>
+                  Register student profiles and manage classroom placements.
+                </p>
+              </div>
+            </div>
+            <button className="btn-primary" onClick={() => handleOpenModal()}>
+              <UserPlus size={18} /> Register New Student
+            </button>
+          </div>
         </div>
-        <button className="btn-primary" onClick={() => handleOpenModal()}>
-          + Register New Student
-        </button>
-      </div>
 
-      {error && (
-        <div style={{
-          background: 'rgba(255, 75, 75, 0.15)',
-          border: '1px solid rgba(255, 75, 75, 0.3)',
-          borderRadius: '8px',
-          padding: '12px 16px',
-          color: '#ff6b6b',
-          fontSize: '14px',
-          marginBottom: '20px'
-        }}>
-          {error}
-        </div>
-      )}
-
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '40px', color: 'hsl(var(--text-secondary))' }}>
-          Loading students...
-        </div>
-      ) : (
-        <div className="glass-panel" style={{ overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.08)', background: 'rgba(255, 255, 255, 0.02)' }}>
-                <th style={{ padding: '16px 24px', color: 'hsl(var(--text-secondary))', fontSize: '13px', fontWeight: '600' }}>Admission No.</th>
-                <th style={{ padding: '16px 24px', color: 'hsl(var(--text-secondary))', fontSize: '13px', fontWeight: '600' }}>Student Name</th>
-                <th style={{ padding: '16px 24px', color: 'hsl(var(--text-secondary))', fontSize: '13px', fontWeight: '600' }}>Assigned Class</th>
-                <th style={{ padding: '16px 24px', color: 'hsl(var(--text-secondary))', fontSize: '13px', fontWeight: '600', textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {students.length === 0 ? (
+        {loading ? (
+          <div className="page-loading">
+            <span className="spinner"></span>
+            <p>Loading student directory...</p>
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border-dark)' }}>
+            <table className="data-table">
+              <thead>
                 <tr>
-                  <td colSpan="4" style={{ padding: '30px', textAlign: 'center', color: 'hsl(var(--text-secondary))' }}>
-                    No students found. Register one to get started!
-                  </td>
+                  <th>Admission No.</th>
+                  <th>Student Name</th>
+                  <th>Assigned Class</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
-              ) : (
-                students.map((student) => (
-                  <tr key={student.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)', transition: 'background 0.2s' }}
-                      onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)'}
-                      onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
-                    <td style={{ padding: '16px 24px', fontSize: '14px', fontWeight: '700', color: 'hsl(var(--accent))' }}>{student.admission_number}</td>
-                    <td style={{ padding: '16px 24px', fontSize: '14px', fontWeight: '600' }}>{student.name}</td>
-                    <td style={{ padding: '16px 24px', fontSize: '14px' }}>
-                      <span style={{
-                        padding: '3px 8px',
-                        background: 'rgba(255, 255, 255, 0.06)',
-                        border: '1px solid rgba(255, 255, 255, 0.08)',
-                        borderRadius: '12px',
-                        fontSize: '12px'
-                      }}>
-                        {student.class?.name || 'Unassigned'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '16px 24px', textAlign: 'right', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                      <button 
-                        onClick={() => handleOpenModal(student)}
-                        style={{
-                          background: 'rgba(92, 124, 250, 0.1)',
-                          border: '1px solid rgba(92, 124, 250, 0.2)',
-                          color: '#7b93ff',
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          fontSize: '13px'
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(student.id)}
-                        style={{
-                          background: 'rgba(255, 75, 75, 0.1)',
-                          border: '1px solid rgba(255, 75, 75, 0.2)',
-                          color: '#ff6b6b',
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          fontSize: '13px'
-                        }}
-                      >
-                        Delete
-                      </button>
+              </thead>
+              <tbody>
+                {students.length === 0 ? (
+                  <tr>
+                    <td colSpan="4" className="empty-state">
+                      <GraduationCap size={40} style={{ opacity: 0.3, marginBottom: '8px' }} />
+                      <p>No students enrolled yet. Click "Register New Student" to get started.</p>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
+                ) : (
+                  students.map((student) => (
+                    <tr key={student.id}>
+                      <td style={{ fontWeight: '700', color: 'hsl(var(--accent))' }}>{student.admission_number}</td>
+                      <td style={{ fontWeight: '600' }}>{student.name}</td>
+                      <td>
+                        <span className="badge badge-teacher">
+                          {student.class?.name || 'Unassigned'}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                          <button onClick={() => handleOpenModal(student)} className="btn-edit">
+                            <Pencil size={14} /> Edit
+                          </button>
+                          <button onClick={() => handleDelete(student.id, student.name)} className="btn-delete" disabled={deletingId === student.id}>
+                            {deletingId === student.id ? <span className="spinner spinner-sm"></span> : <Trash2 size={14} />} Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-      {/* Slide-in / Fade-in Modal Form */}
+      </div>
+
+      {/* Modal Form */}
       {showModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.6)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 1000
-        }}>
-          <div className="glass-panel animate-fade-in" style={{ width: '90%', maxWidth: '440px', padding: '30px' }}>
-            <h2 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '20px' }}>
-              {currentStudent ? 'Edit Student Profile' : 'Register Student'}
-            </h2>
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+        <div className="modal-overlay">
+          <div className="glass-panel modal-content animate-slide-up">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '20px', fontWeight: '700' }}>
+                {currentStudent ? 'Edit Student Profile' : 'Register New Student'}
+              </h2>
+              <button onClick={handleCloseModal} style={{ background: 'none', border: 'none', color: 'hsl(var(--text-secondary))', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', color: 'hsl(var(--text-secondary))', marginBottom: '6px' }}>
-                  Student Name
-                </label>
+                <label className="form-label">Student Full Name</label>
                 <input
                   type="text"
                   className="glass-input"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. John Doe"
+                  placeholder="e.g. John Doe, Fatima Musa"
                   required
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '13px', color: 'hsl(var(--text-secondary))', marginBottom: '6px' }}>
-                  Admission Number
-                </label>
+                <label className="form-label">Admission Number</label>
                 <input
                   type="text"
                   className="glass-input"
                   value={admissionNumber}
                   onChange={(e) => setAdmissionNumber(e.target.value)}
-                  placeholder="e.g. STU001"
+                  placeholder="e.g. STU/2024/001"
                   required
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '13px', color: 'hsl(var(--text-secondary))', marginBottom: '6px' }}>
-                  Assign Class
-                </label>
+                <label className="form-label">Assign Class</label>
                 <select
                   className="glass-input"
                   value={classId}
                   onChange={(e) => setClassId(e.target.value)}
                   required
-                  style={{
-                    appearance: 'none',
-                    color: classId ? 'white' : '#666',
-                    cursor: 'pointer'
-                  }}
                 >
-                  <option value="" disabled style={{ background: '#121826', color: '#666' }}>Select Class</option>
+                  <option value="" disabled style={{ color: '#888' }}>Select Class Placement</option>
                   {classes.map((cls) => (
-                    <option key={cls.id} value={cls.id} style={{ background: '#121826', color: 'white' }}>
+                    <option key={cls.id} value={cls.id} style={{ color: '#000' }}>
                       {cls.name}
                     </option>
                   ))}
                 </select>
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
-                <button type="button" className="btn-logout" onClick={handleCloseModal} style={{ border: 'none', background: 'rgba(255,255,255,0.06)', color: 'white' }}>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '12px' }}>
+                <button type="button" className="btn-cancel" onClick={handleCloseModal}>
                   Cancel
                 </button>
                 <button type="submit" className="btn-primary" disabled={submitting}>
-                  {submitting ? 'Registering...' : 'Save Student'}
+                  {submitting ? (
+                    <><span className="spinner spinner-sm"></span> Saving...</>
+                  ) : (
+                    <><Save size={16} /> Save Student</>
+                  )}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
     </div>
   );
 };

@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import examOfficerService from '../../services/examOfficerService';
 import { Link } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { ArrowLeft, FileCheck2, CheckCircle2, XCircle, CheckCheck } from 'lucide-react';
+import examOfficerService from '../../services/examOfficerService';
 
 const Approvals = () => {
   const [pendingResults, setPendingResults] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState('');
+  const [actioningId, setActioningId] = useState(null);
 
   useEffect(() => {
     fetchPending();
@@ -18,86 +20,111 @@ const Approvals = () => {
       setPendingResults(data);
     } catch (error) {
       console.error(error);
-      setMessage('Failed to load pending results.');
+      toast.error('Failed to load pending results.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleAction = async (id, actionType) => {
+    setActioningId(id);
     try {
       if (actionType === 'approve') {
         await examOfficerService.approveResult(id);
+        toast.success(`Result #${id} approved successfully!`);
       } else {
         await examOfficerService.rejectResult(id);
+        toast.info(`Result #${id} rejected.`);
       }
-      
-      setPendingResults(pendingResults.filter(r => r.id !== id));
-      setMessage(`Result successfully ${actionType}d.`);
-      setTimeout(() => setMessage(''), 3000);
+      setPendingResults(prev => prev.filter(r => r.id !== id));
     } catch (error) {
       console.error(error);
-      setMessage(`Failed to ${actionType} result.`);
+      toast.error(`Failed to ${actionType} result.`);
+    } finally {
+      setActioningId(null);
     }
   };
 
   return (
     <div style={{ padding: '30px', maxWidth: '1200px', margin: '0 auto' }} className="animate-fade-in">
       <div className="glass-panel" style={{ padding: '40px' }}>
-        <div style={{ marginBottom: '30px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '20px' }}>
-          <Link to="/dashboard" style={{ color: '#00f2fe', textDecoration: 'none', fontSize: '14px', marginBottom: '10px', display: 'inline-block' }}>&larr; Back to Dashboard</Link>
-          <h2 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '8px' }}>Pending Approvals</h2>
-          <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '15px' }}>Review and approve teacher-submitted student grades.</p>
+        
+        <div style={{ marginBottom: '30px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '20px' }}>
+          <Link to="/dashboard" className="back-link">
+            <ArrowLeft size={16} /> Back to Dashboard
+          </Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
+            <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(0, 242, 254, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <FileCheck2 size={22} color="#00f2fe" />
+            </div>
+            <div>
+              <h2 style={{ fontSize: '28px', fontWeight: '700' }}>Pending Grade Approvals</h2>
+              <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '14px', marginTop: '2px' }}>
+                Review and verify teacher-submitted student grades.
+              </p>
+            </div>
+          </div>
         </div>
 
-        {message && (
-          <div style={{ padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', background: message.includes('Failed') ? 'rgba(255,75,75,0.15)' : 'rgba(75,255,125,0.15)', color: message.includes('Failed') ? '#ff4b4b' : '#4bff7d', fontSize: '14px', fontWeight: '500' }}>
-            {message}
-          </div>
-        )}
-
         {loading ? (
-          <p style={{ textAlign: 'center', color: 'hsl(var(--text-secondary))', padding: '40px' }}>Loading pending results...</p>
+          <div className="page-loading">
+            <span className="spinner"></span>
+            <p>Loading pending grade submissions...</p>
+          </div>
         ) : pendingResults.length === 0 ? (
-          <div style={{ padding: '60px 20px', textAlign: 'center', background: 'rgba(0,0,0,0.15)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)' }}>
-            <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '16px' }}>Hooray! No pending results to approve.</p>
+          <div className="empty-state">
+            <CheckCheck size={48} color="#00e676" style={{ opacity: 0.8, marginBottom: '12px' }} />
+            <p style={{ fontSize: '16px', fontWeight: '600', color: 'hsl(var(--text-primary))' }}>All caught up!</p>
+            <p style={{ fontSize: '13px', marginTop: '4px' }}>No pending result entries requiring approval right now.</p>
           </div>
         ) : (
-          <div style={{ borderRadius: '12px', overflow: 'x-auto', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(0,0,0,0.2)' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '800px' }}>
-              <thead style={{ background: 'rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+          <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border-dark)' }}>
+            <table className="data-table">
+              <thead>
                 <tr>
-                  <th style={{ padding: '16px', fontSize: '12px', color: 'hsl(var(--text-secondary))', textTransform: 'uppercase', letterSpacing: '1px' }}>ID</th>
-                  <th style={{ padding: '16px', fontSize: '12px', color: 'hsl(var(--text-secondary))', textTransform: 'uppercase', letterSpacing: '1px' }}>Student</th>
-                  <th style={{ padding: '16px', fontSize: '12px', color: 'hsl(var(--text-secondary))', textTransform: 'uppercase', letterSpacing: '1px' }}>Class</th>
-                  <th style={{ padding: '16px', fontSize: '12px', color: 'hsl(var(--text-secondary))', textTransform: 'uppercase', letterSpacing: '1px' }}>Subject</th>
-                  <th style={{ padding: '16px', fontSize: '12px', color: 'hsl(var(--text-secondary))', textTransform: 'uppercase', letterSpacing: '1px' }}>Term/Session</th>
-                  <th style={{ padding: '16px', fontSize: '12px', color: 'hsl(var(--text-secondary))', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>Score</th>
-                  <th style={{ padding: '16px', fontSize: '12px', color: 'hsl(var(--text-secondary))', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>Grade</th>
-                  <th style={{ padding: '16px', fontSize: '12px', color: 'hsl(var(--text-secondary))', textTransform: 'uppercase', letterSpacing: '1px' }}>Teacher</th>
-                  <th style={{ padding: '16px', fontSize: '12px', color: 'hsl(var(--text-secondary))', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'right' }}>Actions</th>
+                  <th>ID</th>
+                  <th>Student</th>
+                  <th>Class</th>
+                  <th>Subject</th>
+                  <th>Session & Term</th>
+                  <th style={{ textAlign: 'center' }}>Breakdown (CA+Exam)</th>
+                  <th style={{ textAlign: 'center' }}>Grade</th>
+                  <th>Teacher</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {pendingResults.map(result => (
-                  <tr key={result.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <td style={{ padding: '16px', color: 'hsl(var(--text-secondary))', fontSize: '13px' }}>#{result.id}</td>
-                    <td style={{ padding: '16px', fontWeight: '500' }}>{result.student?.name}</td>
-                    <td style={{ padding: '16px', fontSize: '14px' }}>{result.student?.class?.name}</td>
-                    <td style={{ padding: '16px', fontSize: '14px' }}>{result.subject?.name}</td>
-                    <td style={{ padding: '16px', fontSize: '13px', color: 'hsl(var(--text-secondary))' }}>Term {result.term} <br/><span style={{ fontSize: '11px' }}>{result.academic_session}</span></td>
-                    <td style={{ padding: '16px', textAlign: 'center', fontSize: '14px' }}>
-                      {result.ca_score} + {result.exam_score} = <span style={{ fontWeight: 'bold', color: 'hsl(var(--text-primary))' }}>{result.total_score}</span>
+                  <tr key={result.id}>
+                    <td style={{ color: 'hsl(var(--text-secondary))', fontSize: '13px' }}>#{result.id}</td>
+                    <td style={{ fontWeight: '600' }}>{result.student?.name}</td>
+                    <td>{result.student?.class?.name}</td>
+                    <td>{result.subject?.name}</td>
+                    <td style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))' }}>
+                      Term {result.term}
+                      <br />
+                      <span style={{ fontSize: '11px' }}>{result.academic_session}</span>
                     </td>
-                    <td style={{ padding: '16px', textAlign: 'center', fontWeight: 'bold', color: '#00f2fe' }}>{result.grade}</td>
-                    <td style={{ padding: '16px', fontSize: '14px', color: 'hsl(var(--text-secondary))' }}>{result.teacher?.name}</td>
-                    <td style={{ padding: '16px', textAlign: 'right' }}>
+                    <td style={{ textAlign: 'center', fontSize: '13px' }}>
+                      {result.ca_score} + {result.exam_score} = <span style={{ fontWeight: '800' }}>{result.total_score}</span>
+                    </td>
+                    <td style={{ textAlign: 'center', fontWeight: '800', color: '#00f2fe' }}>{result.grade}</td>
+                    <td style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))' }}>{result.teacher?.name}</td>
+                    <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                        <button onClick={() => handleAction(result.id, 'approve')} style={{ padding: '6px 12px', background: 'rgba(75,255,125,0.2)', color: '#4bff7d', border: '1px solid rgba(75,255,125,0.3)', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
-                          Approve
+                        <button 
+                          onClick={() => handleAction(result.id, 'approve')} 
+                          disabled={actioningId === result.id}
+                          className="btn-success"
+                        >
+                          {actioningId === result.id ? <span className="spinner spinner-sm"></span> : <CheckCircle2 size={14} />} Approve
                         </button>
-                        <button onClick={() => handleAction(result.id, 'reject')} style={{ padding: '6px 12px', background: 'rgba(255,75,75,0.2)', color: '#ff4b4b', border: '1px solid rgba(255,75,75,0.3)', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
-                          Reject
+                        <button 
+                          onClick={() => handleAction(result.id, 'reject')} 
+                          disabled={actioningId === result.id}
+                          className="btn-delete"
+                        >
+                          {actioningId === result.id ? <span className="spinner spinner-sm"></span> : <XCircle size={14} />} Reject
                         </button>
                       </div>
                     </td>

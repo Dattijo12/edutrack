@@ -1,16 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { ArrowLeft, Plus, Pencil, Trash2, BookOpen, Save, X } from 'lucide-react';
 import subjectService from '../../services/subjectService';
 
 const Subjects = () => {
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
-  const [currentSubject, setCurrentSubject] = useState(null); // For editing
+  const [currentSubject, setCurrentSubject] = useState(null);
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     fetchSubjects();
@@ -22,7 +24,8 @@ const Subjects = () => {
       const data = await subjectService.getAll();
       setSubjects(data);
     } catch (err) {
-      setError('Failed to load subjects.');
+      console.error(err);
+      toast.error('Failed to load subjects.');
     } finally {
       setLoading(false);
     }
@@ -32,7 +35,6 @@ const Subjects = () => {
     setCurrentSubject(sub);
     setName(sub ? sub.name : '');
     setCode(sub ? sub.code : '');
-    setError('');
     setShowModal(true);
   };
 
@@ -45,197 +47,173 @@ const Subjects = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
     setSubmitting(true);
 
     try {
       if (currentSubject) {
-        // Edit Subject
         await subjectService.update(currentSubject.id, { name, code });
+        toast.success(`Subject "${name}" updated successfully!`);
       } else {
-        // Add Subject
         await subjectService.create({ name, code });
+        toast.success(`Subject "${name}" created successfully!`);
       }
       fetchSubjects();
       handleCloseModal();
     } catch (err) {
-      setError(
-        err.response?.data?.message || 
-        err.response?.data?.errors?.code?.[0] || 
-        err.response?.data?.errors?.name?.[0] || 
-        'Failed to save subject.'
-      );
+      console.error(err);
+      const msg = err.response?.data?.message || err.response?.data?.errors?.code?.[0] || err.response?.data?.errors?.name?.[0] || 'Failed to save subject.';
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this subject? All associated grades will be permanently deleted.')) return;
-    setError('');
+  const handleDelete = async (id, subjectName) => {
+    if (!window.confirm(`Are you sure you want to delete "${subjectName}"? All associated grades will be permanently deleted.`)) return;
+    setDeletingId(id);
 
     try {
       await subjectService.delete(id);
+      toast.success(`Subject "${subjectName}" deleted.`);
       fetchSubjects();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to delete subject.');
+      console.error(err);
+      toast.error(err.response?.data?.message || 'Failed to delete subject.');
+    } finally {
+      setDeletingId(null);
     }
   };
 
   return (
     <div style={{ padding: '30px', maxWidth: '1000px', margin: '0 auto' }} className="animate-fade-in">
-      {/* Navigation Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-        <div>
-          <Link to="/dashboard" style={{ color: 'hsl(var(--text-secondary))', textDecoration: 'none', fontSize: '14px' }}>
-            &larr; Back to Dashboard
+      <div className="glass-panel" style={{ padding: '40px' }}>
+        
+        {/* Navigation Header */}
+        <div style={{ marginBottom: '30px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '20px' }}>
+          <Link to="/dashboard" className="back-link">
+            <ArrowLeft size={16} /> Back to Dashboard
           </Link>
-          <h1 style={{ fontSize: '28px', fontWeight: '700', marginTop: '10px' }}>Manage Subjects</h1>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', flexWrap: 'wrap', gap: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(250, 84, 180, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <BookOpen size={22} color="#ff7be1" />
+              </div>
+              <div>
+                <h1 style={{ fontSize: '28px', fontWeight: '700' }}>Manage Subjects</h1>
+                <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '14px', marginTop: '2px' }}>
+                  Define curriculum courses, subject codes, and academic categories.
+                </p>
+              </div>
+            </div>
+            <button className="btn-primary" onClick={() => handleOpenModal()}>
+              <Plus size={18} /> Add New Subject
+            </button>
+          </div>
         </div>
-        <button className="btn-primary" onClick={() => handleOpenModal()}>
-          + Add New Subject
-        </button>
-      </div>
 
-      {error && (
-        <div style={{
-          background: 'rgba(255, 75, 75, 0.15)',
-          border: '1px solid rgba(255, 75, 75, 0.3)',
-          borderRadius: '8px',
-          padding: '12px 16px',
-          color: '#ff6b6b',
-          fontSize: '14px',
-          marginBottom: '20px'
-        }}>
-          {error}
-        </div>
-      )}
-
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '40px', color: 'hsl(var(--text-secondary))' }}>
-          Loading subjects...
-        </div>
-      ) : (
-        <div className="glass-panel" style={{ overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.08)', background: 'rgba(255, 255, 255, 0.02)' }}>
-                <th style={{ padding: '16px 24px', color: 'hsl(var(--text-secondary))', fontSize: '13px', fontWeight: '600' }}>Subject Code</th>
-                <th style={{ padding: '16px 24px', color: 'hsl(var(--text-secondary))', fontSize: '13px', fontWeight: '600' }}>Subject Name</th>
-                <th style={{ padding: '16px 24px', color: 'hsl(var(--text-secondary))', fontSize: '13px', fontWeight: '600', textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {subjects.length === 0 ? (
+        {loading ? (
+          <div className="page-loading">
+            <span className="spinner"></span>
+            <p>Loading subjects...</p>
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border-dark)' }}>
+            <table className="data-table">
+              <thead>
                 <tr>
-                  <td colSpan="3" style={{ padding: '30px', textAlign: 'center', color: 'hsl(var(--text-secondary))' }}>
-                    No subjects found. Add one to get started!
-                  </td>
+                  <th>Subject Code</th>
+                  <th>Subject Name</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
-              ) : (
-                subjects.map((sub) => (
-                  <tr key={sub.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)', transition: 'background 0.2s' }}
-                      onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)'}
-                      onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
-                    <td style={{ padding: '16px 24px', fontSize: '14px', fontWeight: '700', color: 'hsl(var(--accent))' }}>{sub.code}</td>
-                    <td style={{ padding: '16px 24px', fontSize: '14px', fontWeight: '600' }}>{sub.name}</td>
-                    <td style={{ padding: '16px 24px', textAlign: 'right', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                      <button 
-                        onClick={() => handleOpenModal(sub)}
-                        style={{
-                          background: 'rgba(92, 124, 250, 0.1)',
-                          border: '1px solid rgba(92, 124, 250, 0.2)',
-                          color: '#7b93ff',
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          fontSize: '13px'
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(sub.id)}
-                        style={{
-                          background: 'rgba(255, 75, 75, 0.1)',
-                          border: '1px solid rgba(255, 75, 75, 0.2)',
-                          color: '#ff6b6b',
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          fontSize: '13px'
-                        }}
-                      >
-                        Delete
-                      </button>
+              </thead>
+              <tbody>
+                {subjects.length === 0 ? (
+                  <tr>
+                    <td colSpan="3" className="empty-state">
+                      <BookOpen size={40} style={{ opacity: 0.3, marginBottom: '8px' }} />
+                      <p>No subjects added yet. Click "Add New Subject" to register one.</p>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
+                ) : (
+                  subjects.map((sub) => (
+                    <tr key={sub.id}>
+                      <td style={{ fontWeight: '700', color: 'hsl(var(--accent))' }}>{sub.code}</td>
+                      <td style={{ fontWeight: '600' }}>{sub.name}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                          <button onClick={() => handleOpenModal(sub)} className="btn-edit">
+                            <Pencil size={14} /> Edit
+                          </button>
+                          <button onClick={() => handleDelete(sub.id, sub.name)} className="btn-delete" disabled={deletingId === sub.id}>
+                            {deletingId === sub.id ? <span className="spinner spinner-sm"></span> : <Trash2 size={14} />} Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-      {/* Slide-in / Fade-in Modal Form */}
+      </div>
+
+      {/* Modal Form */}
       {showModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.6)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 1000
-        }}>
-          <div className="glass-panel animate-fade-in" style={{ width: '90%', maxWidth: '440px', padding: '30px' }}>
-            <h2 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '20px' }}>
-              {currentSubject ? 'Edit Subject' : 'Create Subject'}
-            </h2>
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+        <div className="modal-overlay">
+          <div className="glass-panel modal-content animate-slide-up">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '20px', fontWeight: '700' }}>
+                {currentSubject ? 'Edit Subject' : 'Create New Subject'}
+              </h2>
+              <button onClick={handleCloseModal} style={{ background: 'none', border: 'none', color: 'hsl(var(--text-secondary))', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', color: 'hsl(var(--text-secondary))', marginBottom: '6px' }}>
-                  Subject Code
-                </label>
+                <label className="form-label">Subject Code</label>
                 <input
                   type="text"
                   className="glass-input"
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
-                  placeholder="e.g. MATH101"
+                  placeholder="e.g. MATH101, ENG202, PHY101"
                   required
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '13px', color: 'hsl(var(--text-secondary))', marginBottom: '6px' }}>
-                  Subject Name
-                </label>
+                <label className="form-label">Subject Name</label>
                 <input
                   type="text"
                   className="glass-input"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Mathematics"
+                  placeholder="e.g. Mathematics, English Language, Physics"
                   required
                 />
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
-                <button type="button" className="btn-logout" onClick={handleCloseModal} style={{ border: 'none', background: 'rgba(255,255,255,0.06)', color: 'white' }}>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '12px' }}>
+                <button type="button" className="btn-cancel" onClick={handleCloseModal}>
                   Cancel
                 </button>
                 <button type="submit" className="btn-primary" disabled={submitting}>
-                  {submitting ? 'Saving...' : 'Save Subject'}
+                  {submitting ? (
+                    <><span className="spinner spinner-sm"></span> Saving...</>
+                  ) : (
+                    <><Save size={16} /> Save Subject</>
+                  )}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
     </div>
   );
 };

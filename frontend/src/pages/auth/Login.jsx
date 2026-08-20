@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { GraduationCap, LogIn, Sun, Moon, Mail, Lock } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const { login } = useAuth();
@@ -15,11 +16,11 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
 
     try {
       await login(email, password);
+      toast.success('Signed in successfully! Welcome back.');
       navigate('/dashboard');
     } catch (err) {
       console.error(err);
@@ -30,17 +31,15 @@ const Login = () => {
         responseData?.errors?.password?.[0];
 
       if (backendMessage) {
-        setError(backendMessage);
-        return;
+        toast.error(backendMessage);
+      } else {
+        const errMsg = typeof err?.message === 'string' ? err.message.toLowerCase() : '';
+        if (errMsg.includes('network error') || errMsg.includes('econnrefused') || errMsg.includes('timeout')) {
+          toast.error('Unable to reach backend server. Ensure it is running.');
+        } else {
+          toast.error('Failed to log in. Please check your credentials.');
+        }
       }
-
-      const errMsg = typeof err?.message === 'string' ? err.message.toLowerCase() : '';
-      if (errMsg.includes('network error') || errMsg.includes('econnrefused') || errMsg.includes('timeout')) {
-        setError('Unable to reach login server. Please make sure the backend is running and try again.');
-        return;
-      }
-
-      setError('Failed to log in. Please check your credentials.');
     } finally {
       setLoading(false);
     }
@@ -49,6 +48,7 @@ const Login = () => {
   const autofillUser = (roleEmail, rolePass) => {
     setEmail(roleEmail);
     setPassword(rolePass);
+    toast.info(`Autofilled demo credentials for ${roleEmail}`);
   };
 
   return (
@@ -57,68 +57,95 @@ const Login = () => {
         
         {/* Header with Theme Toggle */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-          <div>
-            <h1 style={{ fontSize: '28px', fontWeight: '800', background: 'linear-gradient(135deg, #7b93ff 0%, #ff7be1 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              EduTrack
-            </h1>
-            <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', marginTop: '2px' }}>
-              School Management System Portal
-            </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              width: '44px',
+              height: '44px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--secondary)) 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 4px 15px hsla(var(--primary), 0.4)'
+            }}>
+              <GraduationCap size={24} color="#fff" />
+            </div>
+            <div>
+              <h1 style={{
+                fontSize: '26px',
+                fontWeight: '800',
+                background: 'linear-gradient(135deg, #7b93ff 0%, #ff7be1 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent'
+              }}>
+                EduTrack
+              </h1>
+              <p style={{ fontSize: '12px', color: 'hsl(var(--text-secondary))', marginTop: '1px' }}>
+                School Management System
+              </p>
+            </div>
           </div>
+          
           <button 
             onClick={toggleTheme}
             className="btn-secondary" 
-            style={{ padding: '8px 12px', fontSize: '16px' }}
-            title="Toggle Light/Dark Theme"
+            style={{ padding: '8px 12px', borderRadius: '10px' }}
+            title="Toggle Theme"
           >
-            {theme === 'dark' ? '☀️' : '🌙'}
+            {theme === 'dark' ? <Sun size={18} color="#ffb400" /> : <Moon size={18} color="#7b93ff" />}
           </button>
         </div>
 
-        {error && (
-          <div style={{ padding: '12px 16px', borderRadius: '8px', background: 'rgba(255,75,75,0.15)', border: '1px solid rgba(255,75,75,0.3)', color: '#ff4b4b', fontSize: '13px', marginBottom: '20px', fontWeight: '500' }}>
-            {error}
-          </div>
-        )}
-
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div>
-            <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', color: 'hsl(var(--text-secondary))', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600' }}>
-              Email Address
-            </label>
-            <input 
-              type="email" 
-              className="glass-input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="e.g. admin@school.com"
-              required
-            />
+            <label className="form-label">Email Address</label>
+            <div style={{ position: 'relative' }}>
+              <Mail size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-secondary))' }} />
+              <input 
+                type="email" 
+                className="glass-input"
+                style={{ paddingLeft: '38px' }}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="e.g. admin@school.com"
+                required
+              />
+            </div>
           </div>
 
           <div>
-            <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', color: 'hsl(var(--text-secondary))', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600' }}>
-              Password
-            </label>
-            <input 
-              type="password" 
-              className="glass-input"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-            />
+            <label className="form-label">Password</label>
+            <div style={{ position: 'relative' }}>
+              <Lock size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-secondary))' }} />
+              <input 
+                type="password" 
+                className="glass-input"
+                style={{ paddingLeft: '38px' }}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+              />
+            </div>
           </div>
 
-          <button type="submit" className="btn-primary" disabled={loading} style={{ width: '100%', marginTop: '10px' }}>
-            {loading ? 'Authenticating...' : 'Sign In'}
+          <button type="submit" className="btn-primary" disabled={loading} style={{ width: '100%', marginTop: '8px' }}>
+            {loading ? (
+              <>
+                <span className="spinner spinner-sm"></span> Processing...
+              </>
+            ) : (
+              <>
+                <LogIn size={18} /> Sign In
+              </>
+            )}
           </button>
         </form>
 
         {/* Demo Quick Logins Helper */}
-        <div style={{ marginTop: '35px', paddingTop: '20px', borderTop: '1px solid var(--border-dark)' }}>
-          <p style={{ fontSize: '11px', color: 'hsl(var(--text-secondary))', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', textAlign: 'center' }}>
-            Quick Demo Logins (Click to Autofill):
+        <div style={{ marginTop: '32px', paddingTop: '20px', borderTop: '1px solid var(--border-dark)' }}>
+          <p style={{ fontSize: '11px', color: 'hsl(var(--text-secondary))', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', textAlign: 'center', fontWeight: '600' }}>
+            Quick Demo Logins:
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', justifyContent: 'center' }}>
             <button onClick={() => autofillUser('admin@school.com', 'admin123')} className="badge badge-admin" style={{ cursor: 'pointer', border: 'none' }}>

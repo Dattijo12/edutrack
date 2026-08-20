@@ -33,6 +33,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // School Settings
         Route::get('/settings', 'App\Http\Controllers\Admin\SchoolSettingController@show');
         Route::put('/settings', 'App\Http\Controllers\Admin\SchoolSettingController@update');
+        Route::post('/settings', 'App\Http\Controllers\Admin\SchoolSettingController@update');
 
         // Subject Assignments
         Route::get('/subject-assignments', 'App\Http\Controllers\Admin\SubjectAssignmentController@index');
