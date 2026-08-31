@@ -377,14 +377,14 @@ const UserManagement = () => {
                 </div>
               </div>
 
-              {/* Dynamic Teacher / Form Master Class & Subject Assignment Fields */}
-              {(formData.role === 'teacher' || formData.role === 'form_master') && (
+              {/* Dynamic Form Master Class Assignment Fields */}
+              {(formData.role === 'form_master') && (
                 <div style={{ padding: '18px', borderRadius: '12px', background: 'rgba(92, 124, 250, 0.08)', border: '1px solid rgba(92, 124, 250, 0.2)' }}>
                   
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-                    <BookOpen size={18} color="#7b93ff" />
+                    <Layers size={18} color="#7b93ff" />
                     <h4 style={{ fontSize: '15px', fontWeight: '700', color: '#7b93ff' }}>
-                      Teacher Class & Subject Allocation
+                      Form Master Class Allocation
                     </h4>
                   </div>
 
@@ -395,6 +395,7 @@ const UserManagement = () => {
                       className="glass-input"
                       value={formData.assigned_class_id}
                       onChange={(e) => setFormData({ ...formData, assigned_class_id: e.target.value })}
+                      required={formData.role === 'form_master'}
                     >
                       <option value="" style={{ color: '#000' }}>-- Select Class Arm --</option>
                       {classList.map(c => (
@@ -403,6 +404,19 @@ const UserManagement = () => {
                         </option>
                       ))}
                     </select>
+                  </div>
+                </div>
+              )}
+
+              {/* Dynamic Subject Teacher Assignment Fields */}
+              {(formData.role === 'teacher') && (
+                <div style={{ padding: '18px', borderRadius: '12px', background: 'rgba(235, 92, 180, 0.08)', border: '1px solid rgba(235, 92, 180, 0.2)' }}>
+                  
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                    <BookOpen size={18} color="#ff7be1" />
+                    <h4 style={{ fontSize: '15px', fontWeight: '700', color: '#ff7be1' }}>
+                      Teacher Subject Allocation
+                    </h4>
                   </div>
 
                   {/* Multi-Select Subject Selector */}
@@ -431,16 +445,16 @@ const UserManagement = () => {
                                 fontWeight: '600',
                                 padding: '6px 10px',
                                 borderRadius: '8px',
-                                background: checked ? 'rgba(92, 124, 250, 0.2)' : 'transparent',
-                                border: checked ? '1px solid rgba(92, 124, 250, 0.4)' : '1px solid transparent',
-                                color: checked ? '#7b93ff' : 'hsl(var(--text-primary))'
+                                background: checked ? 'rgba(235, 92, 180, 0.2)' : 'transparent',
+                                border: checked ? '1px solid rgba(235, 92, 180, 0.4)' : '1px solid transparent',
+                                color: checked ? '#ff7be1' : 'hsl(var(--text-primary))'
                               }}
                             >
                               <input 
                                 type="checkbox"
                                 checked={checked}
                                 onChange={() => handleSubjectToggle(s.id)}
-                                style={{ accentColor: '#7b93ff', cursor: 'pointer' }}
+                                style={{ accentColor: '#ff7be1', cursor: 'pointer' }}
                               />
                               <span>{s.name}</span>
                             </label>

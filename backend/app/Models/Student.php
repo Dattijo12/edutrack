@@ -25,6 +25,9 @@ class Student extends Model
         'fee_cleared_status' => 'boolean',
     ];
 
+    // Append computed attributes to every JSON response
+    protected $appends = ['name'];
+
     // Accessor for full name
     public function getNameAttribute()
     {

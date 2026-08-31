@@ -1,5 +1,16 @@
-#!/usr/bin/env php
+#!/usr/bin/php8.1
 <?php
+
+// Auto-switch to PHP 8.1 if current PHP runtime lacks SQLite PDO driver
+if (class_exists('PDO') && !in_array('sqlite', PDO::getAvailableDrivers()) && file_exists('/usr/bin/php8.1') && PHP_VERSION_ID >= 80200) {
+    if (function_exists('pcntl_exec')) {
+        @pcntl_exec('/usr/bin/php8.1', array_merge([__FILE__], array_slice($_SERVER['argv'], 1)));
+    } else {
+        $cmd = array_merge(['/usr/bin/php8.1', __FILE__], array_slice($_SERVER['argv'], 1));
+        passthru(implode(' ', array_map('escapeshellarg', $cmd)), $exitCode);
+        exit($exitCode);
+    }
+}
 
 define('LARAVEL_START', microtime(true));
 

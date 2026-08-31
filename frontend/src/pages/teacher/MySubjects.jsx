@@ -1,25 +1,38 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, BookOpen, Layers, Eye } from 'lucide-react';
-import subjectService from '../../services/subjectService';
-import classService from '../../services/classService';
+import { ArrowLeft, BookOpen, Layers, Eye, AlertCircle } from 'lucide-react';
+import resultService from '../../services/resultService';
 
 const MySubjects = () => {
-  const [subjects, setSubjects] = useState([]);
-  const [classes, setClasses] = useState([]);
+  const [assignments, setAssignments] = useState([]); // [{subject, class}]
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [subRes, classRes] = await Promise.all([
-          subjectService.getAll(),
-          classService.getAll()
+        setError(null);
+        // Use teacher-specific endpoints (not admin-only routes)
+        const [subjects, classes] = await Promise.all([
+          resultService.getSubjects(),
+          resultService.getClasses(),
         ]);
-        setSubjects(subRes);
-        setClasses(classRes);
+
+        // Build a combined list pairing each subject with each class it's assigned to.
+        // The teacher/subjects endpoint returns subjects the teacher is assigned to.
+        // The teacher/classes endpoint returns the classes they are assigned to.
+        // We display a row per subject-class pair.
+        const rows = [];
+        subjects.forEach((sub) => {
+          classes.forEach((cls) => {
+            rows.push({ subject: sub, schoolClass: cls });
+          });
+        });
+
+        setAssignments(rows);
       } catch (err) {
         console.error(err);
+        setError('Failed to load your subject assignments. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -27,15 +40,10 @@ const MySubjects = () => {
     fetchData();
   }, []);
 
-  const getClassName = (classId) => {
-    const cls = classes.find(c => c.id === classId);
-    return cls ? cls.name : 'All Classes';
-  };
-
   return (
     <div style={{ padding: '30px', maxWidth: '1200px', margin: '0 auto' }} className="animate-fade-in">
       <div className="glass-panel" style={{ padding: '40px' }}>
-        
+
         <div style={{ marginBottom: '30px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '20px' }}>
           <Link to="/dashboard" className="back-link">
             <ArrowLeft size={16} /> Back to Dashboard
@@ -47,7 +55,7 @@ const MySubjects = () => {
             <div>
               <h2 style={{ fontSize: '28px', fontWeight: '700' }}>My Assigned Subjects</h2>
               <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '14px', marginTop: '2px' }}>
-                Course offerings and assigned student rolls.
+                Your teaching assignments across classes. Click "Open Gradebook" to enter scores.
               </p>
             </div>
           </div>
@@ -58,35 +66,48 @@ const MySubjects = () => {
             <span className="spinner"></span>
             <p>Loading assigned subjects...</p>
           </div>
-        ) : subjects.length === 0 ? (
+        ) : error ? (
+          <div className="empty-state" style={{ color: '#ff6b6b' }}>
+            <AlertCircle size={48} style={{ opacity: 0.5, marginBottom: '12px' }} />
+            <p>{error}</p>
+          </div>
+        ) : assignments.length === 0 ? (
           <div className="empty-state">
             <BookOpen size={48} style={{ opacity: 0.3, marginBottom: '12px' }} />
-            <p>No subjects assigned to your account yet.</p>
+            <p>No subjects have been assigned to your account yet.</p>
+            <p style={{ fontSize: '13px', marginTop: '6px', color: 'hsl(var(--text-secondary))' }}>
+              Please contact the administrator to assign you a class and subject.
+            </p>
           </div>
         ) : (
           <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border-dark)' }}>
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Subject Code</th>
                   <th>Subject Name</th>
-                  <th>Class Level</th>
+                  <th>Subject Code</th>
+                  <th>Assigned Class / Arm</th>
                   <th style={{ textAlign: 'right' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
-                {subjects.map((sub) => (
-                  <tr key={sub.id}>
-                    <td style={{ fontWeight: '700', color: 'hsl(var(--accent))' }}>{sub.code || 'N/A'}</td>
-                    <td style={{ fontWeight: '600' }}>{sub.name}</td>
+                {assignments.map((row, idx) => (
+                  <tr key={`${row.subject.id}-${row.schoolClass.id}-${idx}`}>
+                    <td style={{ fontWeight: '600' }}>{row.subject.name}</td>
+                    <td style={{ fontWeight: '700', color: 'hsl(var(--accent))' }}>
+                      {row.subject.code || 'N/A'}
+                    </td>
                     <td>
                       <span className="badge badge-teacher">
                         <Layers size={12} style={{ display: 'inline', marginRight: '4px' }} />
-                        {getClassName(sub.class_id)}
+                        {row.schoolClass.name} {row.schoolClass.arm && `(Arm ${row.schoolClass.arm})`}
                       </span>
                     </td>
                     <td style={{ textAlign: 'right' }}>
-                      <Link to={`/teacher/results-entry?subject=${sub.id}`} className="btn-edit">
+                      <Link
+                        to={`/teacher/results-entry?class=${row.schoolClass.id}&subject=${row.subject.id}`}
+                        className="btn-edit"
+                      >
                         <Eye size={14} /> Open Gradebook
                       </Link>
                     </td>

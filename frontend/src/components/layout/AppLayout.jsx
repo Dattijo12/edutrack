@@ -201,6 +201,9 @@ const AppLayout = ({ children }) => {
               <span className="user-mini-role">{getRoleName(user?.role)}</span>
             </div>
           </div>
+          <div className="sidebar-powered-by" style={{ marginTop: '16px', textAlign: 'center', fontSize: '11px', color: 'hsl(var(--text-secondary))', opacity: 0.7 }}>
+            Powered by Dattijo Creative Hub
+          </div>
         </div>
 
       </aside>

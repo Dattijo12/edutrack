@@ -122,13 +122,9 @@ class ResultController extends Controller
             return response()->json(SchoolClass::all(), 200);
         }
 
-        // Return classes assigned to teacher
+        // Return only classes this teacher is assigned to via subject assignments
         $classIds = SubjectAssignment::where('teacher_id', $teacherId)->pluck('class_id')->unique();
         $classes = SchoolClass::whereIn('id', $classIds)->get();
-
-        if ($classes->isEmpty()) {
-            $classes = SchoolClass::all(); // Fallback for general preview
-        }
 
         return response()->json($classes, 200);
     }
@@ -141,12 +137,9 @@ class ResultController extends Controller
             return response()->json(Subject::all(), 200);
         }
 
+        // Return only subjects this teacher is assigned to
         $subjectIds = SubjectAssignment::where('teacher_id', $teacherId)->pluck('subject_id')->unique();
         $subjects = Subject::whereIn('id', $subjectIds)->get();
-
-        if ($subjects->isEmpty()) {
-            $subjects = Subject::all(); // Fallback for general preview
-        }
 
         return response()->json($subjects, 200);
     }

@@ -1,14 +1,14 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api',
+  baseURL: import.meta.env.VITE_API_URL || '/api',
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
 });
 
-// Request Interceptor: Attach the authorization token to every request
+// Request Interceptor: Attach authorization token to every request
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -22,16 +22,14 @@ api.interceptors.request.use(
   }
 );
 
-// Response Interceptor: Handle errors globally (e.g. 401 Unauthorized)
+// Response Interceptor: Handle errors globally
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      // Clear token and user info if unauthorized
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      // Redirect to login if window object is available
-      if (typeof window !== 'undefined') {
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
         window.location.href = '/login';
       }
     }
