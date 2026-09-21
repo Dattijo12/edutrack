@@ -73,14 +73,23 @@ const AppLayout = ({ children }) => {
         { label: 'Staff Management', path: '/admin/users', icon: Users },
         { label: 'Classes & Arms', path: '/admin/classes', icon: Layers },
         { label: 'Subject Curriculum', path: '/admin/subjects', icon: BookOpen },
-        { label: 'Student Directory', path: '/admin/students', icon: GraduationCap }
+        { label: 'Student Directory', path: '/admin/students', icon: GraduationCap },
+        { label: 'Bulk Upload', path: '/admin/bulk-upload', icon: FileSpreadsheet }
       );
     }
 
-    if (user?.role === 'teacher' || user?.role === 'form_master') {
+    if (user?.role === 'teacher') {
       items.push(
         { label: 'Gradebook (Input Results)', path: '/teacher/results-entry', icon: ClipboardList },
         { label: 'My Assigned Subjects', path: '/teacher/my-subjects', icon: BookOpen }
+      );
+    }
+
+    if (user?.role === 'form_master') {
+      // In the future, we will add routes for Roster, Attendance, etc.
+      // For now, if they need to input results, we keep the Gradebook, but strictly hide My Assigned Subjects.
+      items.push(
+        { label: 'Gradebook (Input Results)', path: '/teacher/results-entry', icon: ClipboardList }
       );
     }
 
@@ -94,8 +103,7 @@ const AppLayout = ({ children }) => {
 
     // Shared account links
     items.push(
-      { label: 'Change Password', path: '/change-password', icon: KeyRound },
-      { label: 'Verify Result', path: '/verify-result', icon: ShieldCheck }
+      { label: 'Change Password', path: '/change-password', icon: KeyRound }
     );
 
     return items;

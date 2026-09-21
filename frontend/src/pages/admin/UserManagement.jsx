@@ -4,6 +4,7 @@ import {
   UserPlus, Pencil, Trash2, Users, Save, Search, Filter, X, 
   Shield, Phone, Mail, BookOpen, Layers, CheckSquare
 } from 'lucide-react';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "../../components/ui/select";
 import adminService from '../../services/adminService';
 import classService from '../../services/classService';
 import subjectService from '../../services/subjectService';
@@ -26,10 +27,12 @@ const UserManagement = () => {
     name: '',
     email: '',
     phone: '',
+    gender: '',
     role: 'teacher',
     password: '',
     status: 'active',
     assigned_class_id: '',
+    assigned_class_ids: [],
     assigned_subject_ids: []
   });
 
@@ -68,9 +71,13 @@ const UserManagement = () => {
     if (user) {
       setEditingUser(user);
       
-      // Extract existing assigned subject IDs and class ID
+      // Extract existing assigned subject IDs and class IDs
       const assignedSubIds = user.subject_assignments 
         ? user.subject_assignments.map(a => a.subject_id) 
+        : [];
+
+      const assignedClassIds = user.subject_assignments
+        ? [...new Set(user.subject_assignments.map(a => a.class_id))]
         : [];
       
       const assignedClassId = user.assigned_classes && user.assigned_classes.length > 0 
@@ -81,10 +88,12 @@ const UserManagement = () => {
         name: user.name,
         email: user.email,
         phone: user.phone || '',
+        gender: user.gender || '',
         role: user.role,
         password: '',
         status: user.status || 'active',
         assigned_class_id: assignedClassId || '',
+        assigned_class_ids: assignedClassIds,
         assigned_subject_ids: assignedSubIds
       });
     } else {
@@ -93,14 +102,27 @@ const UserManagement = () => {
         name: '',
         email: '',
         phone: '',
+        gender: '',
         role: 'teacher',
         password: '',
         status: 'active',
         assigned_class_id: classList.length > 0 ? classList[0].id : '',
+        assigned_class_ids: [],
         assigned_subject_ids: []
       });
     }
     setShowModal(true);
+  };
+
+  const handleClassToggle = (classId) => {
+    setFormData(prev => {
+      const exists = prev.assigned_class_ids.includes(classId);
+      if (exists) {
+        return { ...prev, assigned_class_ids: prev.assigned_class_ids.filter(id => id !== classId) };
+      } else {
+        return { ...prev, assigned_class_ids: [...prev.assigned_class_ids, classId] };
+      }
+    });
   };
 
   const handleSubjectToggle = (subjectId) => {
@@ -226,6 +248,7 @@ const UserManagement = () => {
                 <tr>
                   <th>Staff Name</th>
                   <th>Contact Info</th>
+                  <th>Gender</th>
                   <th>Role</th>
                   <th>Assigned Class / Subjects</th>
                   <th>Status</th>
@@ -244,6 +267,7 @@ const UserManagement = () => {
                         <div style={{ fontSize: '13px', fontWeight: '500' }}>{u.email}</div>
                         <div style={{ fontSize: '12px', color: 'hsl(var(--text-secondary))' }}>{u.phone || 'No phone'}</div>
                       </td>
+                      <td>{u.gender || '-'}</td>
                       <td>
                         <span className={`badge badge-${u.role}`}>{u.role.replace('_', ' ')}</span>
                       </td>
@@ -341,7 +365,7 @@ const UserManagement = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
                 <div>
                   <label className="form-label">Phone Number</label>
                   <div style={{ position: 'relative' }}>
@@ -358,14 +382,34 @@ const UserManagement = () => {
                 </div>
 
                 <div>
+                  <label className="form-label">Gender</label>
+                  <Select value={formData.gender} onValueChange={(val) => setFormData({ ...formData, gender: val })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Gender" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Male">Male</SelectItem>
+                      <SelectItem value="Female">Female</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
                   <label className="form-label">Assigned System Role</label>
                   <div style={{ position: 'relative' }}>
                     <Shield size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-secondary))' }} />
                     <select 
                       className="glass-input" 
                       style={{ paddingLeft: '36px' }} 
-                      value={formData.role} 
-                      onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                      value={formData.role}                      onChange={(e) => {
+                        const newRole = e.target.value;
+                        setFormData(prev => ({
+                          ...prev,
+                          role: newRole,
+                          assigned_class_ids: newRole === 'teacher' ? prev.assigned_class_ids : [],
+                          assigned_subject_ids: newRole === 'teacher' ? prev.assigned_subject_ids : [],
+                        }));
+                      }}
                     >
                       <option value="teacher" style={{ color: '#000' }}>Subject Teacher</option>
                       <option value="form_master" style={{ color: '#000' }}>Form Master</option>
@@ -415,8 +459,53 @@ const UserManagement = () => {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
                     <BookOpen size={18} color="#ff7be1" />
                     <h4 style={{ fontSize: '15px', fontWeight: '700', color: '#ff7be1' }}>
-                      Teacher Subject Allocation
+                      Teacher Class & Subject Allocations
                     </h4>
+                  </div>
+
+                  {/* Multi-Select Class Arm Selector */}
+                  <div style={{ marginBottom: '16px' }}>
+                    <label className="form-label" style={{ marginBottom: '8px', display: 'block' }}>
+                      Assigned Class Arm(s)
+                    </label>
+
+                    {classList.length === 0 ? (
+                      <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))' }}>
+                        No classes created yet. Add classes in Class Management first.
+                      </p>
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: '10px', maxHeight: '140px', overflowY: 'auto', padding: '10px', borderRadius: '10px', background: 'rgba(0,0,0,0.15)', border: '1px solid var(--border-dark)' }}>
+                        {classList.map(c => {
+                          const checked = formData.assigned_class_ids.includes(c.id);
+                          return (
+                            <label 
+                              key={c.id} 
+                              style={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '8px', 
+                                cursor: 'pointer',
+                                fontSize: '13px',
+                                fontWeight: '600',
+                                padding: '6px 10px',
+                                borderRadius: '8px',
+                                background: checked ? 'rgba(123, 147, 255, 0.2)' : 'transparent',
+                                border: checked ? '1px solid rgba(123, 147, 255, 0.4)' : '1px solid transparent',
+                                color: checked ? '#7b93ff' : 'hsl(var(--text-primary))'
+                              }}
+                            >
+                              <input 
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => handleClassToggle(c.id)}
+                                style={{ accentColor: '#7b93ff', cursor: 'pointer' }}
+                              />
+                              <span>{c.name} (Arm {c.arm})</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
 
                   {/* Multi-Select Subject Selector */}
@@ -430,7 +519,7 @@ const UserManagement = () => {
                         No subjects created in curriculum yet. Add subjects in Subject Curriculum first.
                       </p>
                     ) : (
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: '10px', maxHeight: '160px', overflowY: 'auto', padding: '10px', borderRadius: '10px', background: 'rgba(0,0,0,0.15)', border: '1px solid var(--border-dark)' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: '10px', maxHeight: '140px', overflowY: 'auto', padding: '10px', borderRadius: '10px', background: 'rgba(0,0,0,0.15)', border: '1px solid var(--border-dark)' }}>
                         {subjectList.map(s => {
                           const checked = formData.assigned_subject_ids.includes(s.id);
                           return (

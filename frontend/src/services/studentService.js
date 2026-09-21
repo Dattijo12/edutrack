@@ -2,10 +2,29 @@ import api from './api';
 
 const studentService = {
   /**
-   * Fetch all students.
+   * Fetch all students with optional search and class filter.
    */
-  async getAll() {
-    const response = await api.get('/admin/students');
+  async getAll(search = '', classId = '') {
+    const params = {};
+    if (search) params.search = search;
+    if (classId) params.class_id = classId;
+    const response = await api.get('/admin/students', { params });
+    return response.data;
+  },
+
+  /**
+   * Alias for getAll to maintain interface compatibility across pages.
+   */
+  async getAllStudents(search = '', classId = '') {
+    return this.getAll(search, classId);
+  },
+
+  /**
+   * Fetch list of enrolled students for a specific class ID.
+   * @param {number|string} classId
+   */
+  async getByClass(classId) {
+    const response = await api.get('/teacher/students', { params: { class_id: classId } });
     return response.data;
   },
 

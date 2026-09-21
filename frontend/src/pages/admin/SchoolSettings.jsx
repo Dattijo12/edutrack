@@ -13,6 +13,11 @@ const SchoolSettings = () => {
     email: '',
     max_ca_score: 30,
     max_exam_score: 70,
+    grade_a_min: 70,
+    grade_b_min: 60,
+    grade_c_min: 50,
+    grade_d_min: 45,
+    grade_e_min: 40,
   });
   
   const [logoFile, setLogoFile] = useState(null);
@@ -32,6 +37,11 @@ const SchoolSettings = () => {
           email: data.email || '',
           max_ca_score: data.max_ca_score || 30,
           max_exam_score: data.max_exam_score || 70,
+          grade_a_min: data.grade_a_min ?? 70,
+          grade_b_min: data.grade_b_min ?? 60,
+          grade_c_min: data.grade_c_min ?? 50,
+          grade_d_min: data.grade_d_min ?? 45,
+          grade_e_min: data.grade_e_min ?? 40,
         });
         if (data.logo_url) {
           setCurrentLogoUrl(data.logo_url);
@@ -78,6 +88,11 @@ const SchoolSettings = () => {
       payload.append('email', formData.email);
       payload.append('max_ca_score', formData.max_ca_score);
       payload.append('max_exam_score', formData.max_exam_score);
+      payload.append('grade_a_min', formData.grade_a_min);
+      payload.append('grade_b_min', formData.grade_b_min);
+      payload.append('grade_c_min', formData.grade_c_min);
+      payload.append('grade_d_min', formData.grade_d_min);
+      payload.append('grade_e_min', formData.grade_e_min);
 
       if (logoFile) {
         payload.append('logo', logoFile);
@@ -223,6 +238,86 @@ const SchoolSettings = () => {
                     max={90}
                     value={formData.max_exam_score} 
                     onChange={(e) => setFormData({ ...formData, max_exam_score: e.target.value })} 
+                    required 
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Grade Boundaries (WAEC / NECO Standards) */}
+            <div style={{ padding: '24px', borderRadius: '14px', background: 'rgba(0, 230, 118, 0.05)', border: '1px solid rgba(0, 230, 118, 0.2)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                <Sliders size={20} color="#00e676" />
+                <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#00e676' }}>
+                  Grade Boundaries (WAEC / NECO Standards)
+                </h3>
+              </div>
+              <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', marginBottom: '18px', lineHeight: '1.4' }}>
+                Minimum total percentage threshold required for each letter grade.
+              </p>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '12px' }}>
+                <div>
+                  <label className="form-label">Grade A (Min %)</label>
+                  <input 
+                    type="number" 
+                    className="glass-input" 
+                    min={0} 
+                    max={100}
+                    value={formData.grade_a_min} 
+                    onChange={(e) => setFormData({ ...formData, grade_a_min: e.target.value })} 
+                    required 
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label">Grade B (Min %)</label>
+                  <input 
+                    type="number" 
+                    className="glass-input" 
+                    min={0} 
+                    max={100}
+                    value={formData.grade_b_min} 
+                    onChange={(e) => setFormData({ ...formData, grade_b_min: e.target.value })} 
+                    required 
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label">Grade C (Min %)</label>
+                  <input 
+                    type="number" 
+                    className="glass-input" 
+                    min={0} 
+                    max={100}
+                    value={formData.grade_c_min} 
+                    onChange={(e) => setFormData({ ...formData, grade_c_min: e.target.value })} 
+                    required 
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label">Grade D (Min %)</label>
+                  <input 
+                    type="number" 
+                    className="glass-input" 
+                    min={0} 
+                    max={100}
+                    value={formData.grade_d_min} 
+                    onChange={(e) => setFormData({ ...formData, grade_d_min: e.target.value })} 
+                    required 
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label">Grade E (Min %)</label>
+                  <input 
+                    type="number" 
+                    className="glass-input" 
+                    min={0} 
+                    max={100}
+                    value={formData.grade_e_min} 
+                    onChange={(e) => setFormData({ ...formData, grade_e_min: e.target.value })} 
                     required 
                   />
                 </div>

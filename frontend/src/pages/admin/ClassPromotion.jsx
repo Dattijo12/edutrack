@@ -42,6 +42,8 @@ const ClassPromotion = () => {
         to_class_id: toClassId,
       });
       setMessage(`🎉 ${res.message}`);
+      setFromClassId('');
+      setToClassId('');
     } catch (err) {
       console.error(err);
       setError(err?.response?.data?.message || 'Class promotion failed.');

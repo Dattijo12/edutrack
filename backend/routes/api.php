@@ -20,6 +20,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', 'App\Http\Controllers\AuthController@logout')->name('logout');
     Route::get('/profile', 'App\Http\Controllers\AuthController@profile')->name('profile');
     Route::post('/change-password', 'App\Http\Controllers\AuthController@changePassword')->name('change_password');
+    
+    // Global Search
+    Route::get('/search', 'App\Http\Controllers\SearchController@index')->name('search');
 
     /**
      * 1. ADMIN ROLE ROUTES
@@ -42,12 +45,22 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // 1-Click Class Promotion
         Route::post('/promote-class', 'App\Http\Controllers\Admin\PromotionController@promote');
+
+        // Bulk Upload Endpoints
+        Route::post('/bulk-upload/students', 'App\Http\Controllers\Admin\BulkUploadController@uploadStudents');
+        Route::post('/bulk-upload/results', 'App\Http\Controllers\Admin\BulkUploadController@uploadResults');
+
+        // Dashboard Analytics
+        Route::get('/analytics/enrollment', 'App\Http\Controllers\Admin\AnalyticsController@enrollment');
     });
 
     /**
      * 2. TEACHER ROLE ROUTES
      */
     Route::middleware('role:teacher,admin,form_master')->prefix('teacher')->group(function () {
+        Route::get('/results/template', 'App\Http\Controllers\Teacher\ResultController@downloadTemplate')->name('teacher.results.template');
+        Route::post('/results/bulk-upload', 'App\Http\Controllers\Teacher\ResultController@bulkUpload')->name('teacher.results.bulk_upload');
+
         Route::get('/results', 'App\Http\Controllers\Teacher\ResultController@index')->name('teacher.results.index');
         Route::post('/results', 'App\Http\Controllers\Teacher\ResultController@store')->name('teacher.results.store');
         Route::get('/results/{result}', 'App\Http\Controllers\Teacher\ResultController@show')->name('teacher.results.show');
@@ -57,6 +70,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/subjects', 'App\Http\Controllers\Teacher\ResultController@subjects')->name('teacher.subjects');
         Route::get('/students', 'App\Http\Controllers\Teacher\ResultController@students')->name('teacher.students');
         Route::get('/max-scores', 'App\Http\Controllers\Teacher\ResultController@maxScores')->name('teacher.max_scores');
+        Route::get('/results-rejected', 'App\Http\Controllers\Teacher\ResultController@rejectedResults')->name('teacher.results.rejected');
     });
 
     /**
@@ -74,12 +88,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:form_master,admin')->prefix('form-master')->group(function () {
         Route::get('/assigned-class', 'App\Http\Controllers\FormMaster\ClassManagementController@assignedClass');
         Route::post('/update-remarks', 'App\Http\Controllers\FormMaster\ClassManagementController@updateRemarks');
+        Route::get('/attendance', 'App\Http\Controllers\FormMaster\ClassManagementController@getAttendance');
+        Route::post('/attendance', 'App\Http\Controllers\FormMaster\ClassManagementController@storeAttendance');
     });
 
     /**
-     * 5. EXAM OFFICER ROLE ROUTES
+     * 5. EXAM OFFICER & FORM MASTER ROLE ROUTES
      */
-    Route::middleware('role:exam_officer,admin')->prefix('exam-officer')->group(function () {
+    Route::middleware('role:exam_officer,admin,form_master')->prefix('exam-officer')->group(function () {
         Route::get('/results/pending', 'App\Http\Controllers\ExamOfficer\ResultController@pending')->name('exam_officer.results.pending');
         Route::post('/results/{result}/approve', 'App\Http\Controllers\ExamOfficer\ResultController@approve')->name('exam_officer.results.approve');
         Route::post('/results/{result}/reject', 'App\Http\Controllers\ExamOfficer\ResultController@reject')->name('exam_officer.results.reject');
@@ -87,5 +103,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/reports/class/{class}', 'App\Http\Controllers\ExamOfficer\ResultController@classReport')->name('exam_officer.reports.class');
         Route::get('/broadsheet/{class}', 'App\Http\Controllers\ExamOfficer\BroadsheetController@generateBroadsheet');
         Route::get('/report-card/{student}', 'App\Http\Controllers\ExamOfficer\BroadsheetController@generateReportCard');
+        Route::get('/classes', 'App\Http\Controllers\Admin\ClassController@index');
+        Route::get('/students', 'App\Http\Controllers\Teacher\ResultController@students');
     });
 });

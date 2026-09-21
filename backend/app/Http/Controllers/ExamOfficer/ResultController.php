@@ -23,21 +23,66 @@ class ResultController extends Controller
     }
 
     /**
-     * Approve a specific result.
+     * Approve a specific result record.
+     * Sets both status and approval_status to 'approved' and clears any previous rejection reason.
      */
     public function approve(Request $request, Result $result)
     {
-        $result->update(['approval_status' => 'approved']);
-        return response()->json(['message' => 'Result approved', 'data' => $result], 200);
+        $result->update([
+            'status' => 'approved',
+            'approval_status' => 'approved',
+            'rejection_reason' => null,
+        ]);
+
+        return response()->json([
+            'message' => 'Result approved successfully.',
+            'data' => $result,
+        ], 200);
     }
 
     /**
-     * Reject a specific result.
+     * Reject a specific student result record with mandatory rejection feedback.
+     * Flexible input resolution accepts 'rejection_reason', 'reason', or 'rejectionReason' keys
+     * to ensure frontend payload compatibility and avoid 422 Unprocessable Content validation errors.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\Result|int|string  $result
+     * @return \Illuminate\Http\JsonResponse
      */
     public function reject(Request $request, Result $result)
     {
-        $result->update(['approval_status' => 'rejected']);
-        return response()->json(['message' => 'Result rejected', 'data' => $result], 200);
+        // Fallback to safely catch any key sent by frontend, including raw json content
+        $data = $request->json()->all() ?: $request->all();
+        
+        $reasonText = $data['rejection_reason'] 
+            ?? $data['reason'] 
+            ?? $data['rejectionReason'] 
+            ?? $request->input('rejection_reason') 
+            ?? $request->input('reason') 
+            ?? $request->input('rejectionReason');
+
+        // Force merge so validation and update can use it directly
+        $request->merge([
+            'rejection_reason' => $reasonText,
+            'reason' => $reasonText,
+        ]);
+
+        // Validate that rejection reason is present and non-empty
+        $validated = $request->validate([
+            'rejection_reason' => 'required|string',
+        ]);
+
+        // Update database status, approval_status, and rejection reason feedback column
+        $result->forceFill([
+            'status'           => 'rejected',
+            'approval_status'   => 'needs_correction',
+            'rejection_reason' => $reasonText,
+        ])->save();
+
+        return response()->json([
+            'message' => 'Result rejected and returned for teacher correction.',
+            'data'    => $result,
+        ], 200);
     }
 
     /**

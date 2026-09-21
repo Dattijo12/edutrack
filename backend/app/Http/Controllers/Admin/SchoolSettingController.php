@@ -18,6 +18,11 @@ class SchoolSettingController extends Controller
             'email' => 'contact@edutrack.edu.ng',
             'max_ca_score' => 30.00,
             'max_exam_score' => 70.00,
+            'grade_a_min' => 70,
+            'grade_b_min' => 60,
+            'grade_c_min' => 50,
+            'grade_d_min' => 45,
+            'grade_e_min' => 40,
         ]);
 
         return response()->json($settings, 200);
@@ -32,6 +37,11 @@ class SchoolSettingController extends Controller
             'email' => 'required|email|max:255',
             'max_ca_score' => 'required|numeric|min:10|max:50',
             'max_exam_score' => 'required|numeric|min:50|max:90',
+            'grade_a_min' => 'required|integer|min:0|max:100',
+            'grade_b_min' => 'required|integer|min:0|max:100',
+            'grade_c_min' => 'required|integer|min:0|max:100',
+            'grade_d_min' => 'required|integer|min:0|max:100',
+            'grade_e_min' => 'required|integer|min:0|max:100',
             'logo' => 'nullable|image|max:2048',
             'principal_signature' => 'nullable|image|max:2048',
         ]);
@@ -49,6 +59,11 @@ class SchoolSettingController extends Controller
             'email' => 'contact@edutrack.edu.ng',
             'max_ca_score' => 30.00,
             'max_exam_score' => 70.00,
+            'grade_a_min' => 70,
+            'grade_b_min' => 60,
+            'grade_c_min' => 50,
+            'grade_d_min' => 45,
+            'grade_e_min' => 40,
         ]);
 
         if ($request->hasFile('logo')) {

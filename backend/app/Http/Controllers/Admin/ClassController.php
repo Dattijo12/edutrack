@@ -57,10 +57,10 @@ class ClassController extends Controller
      */
     public function destroy(SchoolClass $class)
     {
-        // Enforce the 'restrict' deletion check to prevent DB exception
-        if ($class->students()->exists()) {
+        // Enforce the 'restrict' deletion check to prevent DB exception, including soft-deleted students
+        if ($class->students()->withTrashed()->exists()) {
             return response()->json([
-                'message' => 'Cannot delete class because it contains registered students.'
+                'message' => 'Cannot delete class because it contains registered or deleted students.'
             ], 422);
         }
 

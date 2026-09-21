@@ -45,10 +45,14 @@ class BroadsheetController extends Controller
                 $res = $studentResults->get($subject->id);
                 if ($res) {
                     $subjectScores[$subject->id] = [
+                        'id' => $res->id,
                         'ca' => (float)$res->ca_score,
                         'exam' => (float)$res->exam_score,
                         'total' => (float)$res->total_score,
                         'grade' => $res->grade,
+                        'status' => $res->status ?? $res->approval_status ?? 'pending',
+                        'approval_status' => $res->approval_status ?? $res->status ?? 'pending',
+                        'rejection_reason' => $res->rejection_reason,
                     ];
                     $totalMarks += $res->total_score;
                     $subjectCount++;
@@ -98,6 +102,8 @@ class BroadsheetController extends Controller
 
     /**
      * Generate Comprehensive Student Report Card with QR Verification Hash & Fee Gatekeeper Check
+    /**
+     * Generate Comprehensive Student Report Card with QR Verification Hash, QR Graphic & Fee Gatekeeper Check.
      */
     public function generateReportCard(Request $request, $studentId)
     {
@@ -116,35 +122,65 @@ class BroadsheetController extends Controller
                 'student' => [
                     'name' => $student->name,
                     'admission_number' => $student->admission_number,
-                    'class' => $student->class->name . ' ' . $student->class->arm,
+                    'class' => $student->class ? ($student->class->name . ' ' . $student->class->arm) : 'N/A',
                     'fee_cleared_status' => false,
                 ]
             ], 403);
         }
 
+        // Fetch student's approved subject results for the report card
         $results = Result::where('student_id', $student->id)
             ->where('term', $term)
             ->where('academic_session', $session)
+            ->where(function ($query) {
+                $query->where('approval_status', 'approved')
+                      ->orWhere('status', 'approved');
+            })
             ->with('subject')
             ->get();
 
         $verificationHash = md5("EDUTRACK_{$student->id}_{$term}_{$session}_VERIFIED");
+        $verificationUrl = url("/verify-result/{$verificationHash}");
 
-        // Attach hash to results if missing
-        foreach ($results as $res) {
+        // Generate QR code image URL graphic using QR server API endpoint
+        $qrCodeGraphic = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" . urlencode($verificationUrl);
+
+        // Format each result to ensure scores, WAEC grades, and remarks match frontend expectations
+        $formattedResults = $results->map(function ($res) use ($verificationHash) {
             if (!$res->verification_hash) {
                 $res->verification_hash = $verificationHash;
                 $res->save();
             }
-        }
+
+            $ca = (float) ($res->ca_score ?? 0);
+            $exam = (float) ($res->exam_score ?? 0);
+            $total = (float) ($res->total_score ?? ($ca + $exam));
+            $gradeDetails = GradingService::calculateGrade($total);
+
+            return [
+                'id' => $res->id,
+                'subject_id' => $res->subject_id,
+                'subject' => [
+                    'id' => $res->subject?->id,
+                    'name' => $res->subject?->name ?? 'Subject',
+                    'code' => $res->subject?->code ?? 'SUB',
+                ],
+                'ca_score' => $ca,
+                'exam_score' => $exam,
+                'total_score' => $total,
+                'grade' => $res->grade ?: $gradeDetails['grade'],
+                'remark' => $res->remark ?: $gradeDetails['remark'],
+                'approval_status' => $res->approval_status ?? $res->status ?? 'approved',
+            ];
+        });
 
         $summary = TermSummary::where('student_id', $student->id)
             ->when($termObj, fn($q) => $q->where('term_id', $termObj->id))
             ->first();
 
-        // Calculate summary stats if not explicitly computed
-        $totalMarks = $results->sum('total_score');
-        $subjectCount = $results->count();
+        // Calculate aggregate performance metrics
+        $totalMarks = $formattedResults->sum('total_score');
+        $subjectCount = $formattedResults->count();
         $average = $subjectCount > 0 ? round($totalMarks / $subjectCount, 2) : 0;
 
         return response()->json([
@@ -154,13 +190,13 @@ class BroadsheetController extends Controller
                 'id' => $student->id,
                 'name' => $student->name,
                 'admission_number' => $student->admission_number,
-                'gender' => $student->gender,
-                'class_name' => $student->class->name . ' ' . $student->class->arm,
+                'gender' => $student->gender ?? 'N/A',
+                'class_name' => $student->class ? ($student->class->name . ' ' . $student->class->arm) : 'N/A',
                 'fee_cleared' => true,
             ],
             'term' => $term,
             'session' => $session,
-            'results' => $results,
+            'results' => $formattedResults,
             'summary' => [
                 'total_marks' => $totalMarks,
                 'average' => $average,
@@ -170,7 +206,8 @@ class BroadsheetController extends Controller
                 'attendance' => ($summary->attendance_present ?? 65) . ' / ' . ($summary->attendance_total ?? 70),
             ],
             'verification_hash' => $verificationHash,
-            'verification_url' => url("/verify-result/{$verificationHash}"),
+            'verification_url' => $verificationUrl,
+            'qr_code' => $qrCodeGraphic,
         ], 200);
     }
 
@@ -193,10 +230,10 @@ class BroadsheetController extends Controller
         return response()->json([
             'valid' => true,
             'message' => 'AUTHENTIC RESULT VERIFIED',
-            'school_name' => $settings->name ?? 'EduTrack Academy',
-            'student' => $result->student->name,
-            'admission_number' => $result->student->admission_number,
-            'class' => $result->student->class->name . ' ' . $result->student->class->arm,
+            'school_name' => $settings?->name ?? 'EduTrack Academy',
+            'student' => $result->student?->name ?? 'Unknown Student',
+            'admission_number' => $result->student?->admission_number ?? 'N/A',
+            'class' => $result->student?->class ? ($result->student->class->name . ' ' . $result->student->class->arm) : 'Unknown Class',
             'term' => $result->term,
             'session' => $result->academic_session,
             'timestamp' => $result->created_at->format('Y-m-d H:i:s'),

@@ -10,6 +10,12 @@ class Result extends Model
 {
     use HasFactory, SoftDeletes;
 
+    /**
+     * The attributes that are mass assignable.
+     * Includes scores, WAEC/NECO grades, approval status, rejection feedback reason, and verification hash.
+     *
+     * @var array<int, string>
+     */
     protected $fillable = [
         'student_id',
         'subject_id',
@@ -23,9 +29,9 @@ class Result extends Model
         'subject_position',
         'term',
         'academic_session',
-        'term_id',
         'approval_status',
-        'verification_hash',
+        'status',
+        'rejection_reason',
     ];
 
     public function student()

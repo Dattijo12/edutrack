@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { ArrowLeft, FileCheck2, CheckCircle2, XCircle, CheckCheck } from 'lucide-react';
+import { ArrowLeft, FileCheck2, CheckCircle2, CheckCheck } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import examOfficerService from '../../services/examOfficerService';
 
 const Approvals = () => {
@@ -9,10 +12,18 @@ const Approvals = () => {
   const [loading, setLoading] = useState(true);
   const [actioningId, setActioningId] = useState(null);
 
+  // Rejection modal state variables as required by design specification
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [rejectingResultId, setRejectingResultId] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+
   useEffect(() => {
     fetchPending();
   }, []);
 
+  /**
+   * Fetch all pending result submissions awaiting exam officer approval.
+   */
   const fetchPending = async () => {
     setLoading(true);
     try {
@@ -26,20 +37,51 @@ const Approvals = () => {
     }
   };
 
-  const handleAction = async (id, actionType) => {
+  /**
+   * Approve a pending student result entry.
+   *
+   * @param {number|string} id - Result record primary key
+   */
+  const handleApprove = async (id) => {
     setActioningId(id);
     try {
-      if (actionType === 'approve') {
-        await examOfficerService.approveResult(id);
-        toast.success(`Result #${id} approved successfully!`);
-      } else {
-        await examOfficerService.rejectResult(id);
-        toast.info(`Result #${id} rejected.`);
-      }
+      await examOfficerService.approveResult(id);
+      toast.success(`Result #${id} approved successfully!`);
       setPendingResults(prev => prev.filter(r => r.id !== id));
     } catch (error) {
       console.error(error);
-      toast.error(`Failed to ${actionType} result.`);
+      toast.error(`Failed to approve result.`);
+    } finally {
+      setActioningId(null);
+    }
+  };
+
+  /**
+   * Submit result rejection feedback to the backend service.
+   * Triggers API rejection call, updates local UI state, and closes modal dialog.
+   *
+   * @param {number|string} id - Result record primary key
+   * @param {string} reason - Rejection explanation note
+   */
+  const handleConfirmRejection = async (id, reason) => {
+    if (!reason || !reason.trim()) {
+      toast.warning('Please enter a valid rejection reason.');
+      return;
+    }
+
+    setActioningId(id);
+    try {
+      await examOfficerService.rejectResult(id, reason.trim());
+      toast.info(`Result #${id} rejected and returned for teacher correction.`);
+      setPendingResults(prev => prev.filter(r => r.id !== id));
+      
+      // Close dialog and clear state
+      setIsRejectModalOpen(false);
+      setRejectingResultId(null);
+      setRejectionReason("");
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to reject result.');
     } finally {
       setActioningId(null);
     }
@@ -49,6 +91,7 @@ const Approvals = () => {
     <div style={{ padding: '30px', maxWidth: '1200px', margin: '0 auto' }} className="animate-fade-in">
       <div className="glass-panel" style={{ padding: '40px' }}>
         
+        {/* Header Section */}
         <div style={{ marginBottom: '30px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '20px' }}>
           <Link to="/dashboard" className="back-link">
             <ArrowLeft size={16} /> Back to Dashboard
@@ -66,6 +109,7 @@ const Approvals = () => {
           </div>
         </div>
 
+        {/* Content Body */}
         {loading ? (
           <div className="page-loading">
             <span className="spinner"></span>
@@ -111,21 +155,80 @@ const Approvals = () => {
                     <td style={{ textAlign: 'center', fontWeight: '800', color: '#00f2fe' }}>{result.grade}</td>
                     <td style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))' }}>{result.teacher?.name}</td>
                     <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                        <button 
-                          onClick={() => handleAction(result.id, 'approve')} 
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                        {/* Approve Button */}
+                        <Button 
+                          onClick={() => handleApprove(result.id)} 
                           disabled={actioningId === result.id}
                           className="btn-success"
+                          size="sm"
                         >
                           {actioningId === result.id ? <span className="spinner spinner-sm"></span> : <CheckCircle2 size={14} />} Approve
-                        </button>
-                        <button 
-                          onClick={() => handleAction(result.id, 'reject')} 
-                          disabled={actioningId === result.id}
-                          className="btn-delete"
+                        </Button>
+
+                        {/* Reject Modal Dialog */}
+                        <Dialog 
+                          open={isRejectModalOpen && rejectingResultId === result.id} 
+                          onOpenChange={(open) => {
+                            setIsRejectModalOpen(open);
+                            if (!open) {
+                              setRejectionReason("");
+                              setRejectingResultId(null);
+                            }
+                          }}
                         >
-                          {actioningId === result.id ? <span className="spinner spinner-sm"></span> : <XCircle size={14} />} Reject
-                        </button>
+                          <DialogTrigger asChild>
+                            <Button 
+                              variant="destructive" 
+                              size="sm"
+                              onClick={() => {
+                                setRejectingResultId(result.id);
+                                setRejectionReason("");
+                                setIsRejectModalOpen(true);
+                              }}
+                            >
+                              Reject
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Reason for Rejection</DialogTitle>
+                            </DialogHeader>
+                            <div style={{ marginTop: '12px', marginBottom: '16px' }}>
+                              <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', marginBottom: '8px' }}>
+                                Please provide a clear explanation for rejecting result #{result.id} ({result.student?.name} - {result.subject?.name}):
+                              </p>
+                              <Textarea 
+                                placeholder="Enter reason for rejection..." 
+                                value={rejectionReason} 
+                                onChange={(e) => setRejectionReason(e.target.value)} 
+                                rows={4}
+                                required 
+                              />
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => {
+                                  setIsRejectModalOpen(false);
+                                  setRejectionReason("");
+                                  setRejectingResultId(null);
+                                }}
+                              >
+                                Cancel
+                              </Button>
+                              <Button 
+                                variant="destructive" 
+                                size="sm"
+                                disabled={!rejectionReason.trim() || actioningId === result.id} 
+                                onClick={() => handleConfirmRejection(result.id, rejectionReason)}
+                              >
+                                {actioningId === result.id ? <span className="spinner spinner-sm"></span> : 'Confirm Rejection'}
+                              </Button>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
                       </div>
                     </td>
                   </tr>

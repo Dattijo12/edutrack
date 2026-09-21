@@ -13,6 +13,9 @@ import Subjects from './pages/admin/Subjects';
 import Students from './pages/admin/Students';
 import SchoolSettings from './pages/admin/SchoolSettings';
 import UserManagement from './pages/admin/UserManagement';
+import SubjectAssignments from './pages/admin/SubjectAssignments';
+import ClassPromotion from './pages/admin/ClassPromotion';
+import BulkUpload from './pages/admin/BulkUpload';
 import ResultsEntry from './pages/teacher/ResultsEntry';
 import Approvals from './pages/exam-officer/Approvals';
 import Reports from './pages/exam-officer/Reports';
@@ -20,6 +23,15 @@ import Broadsheet from './pages/exam-officer/Broadsheet';
 import MySubjects from './pages/teacher/MySubjects';
 import ChangePassword from './pages/shared/ChangePassword';
 import VerifyResult from './pages/shared/VerifyResult';
+
+// Form Master Pages
+import ClassRoster from './pages/form-master/ClassRoster';
+import ClassAttendance from './pages/form-master/ClassAttendance';
+import ClassResults from './pages/form-master/ClassResults';
+import ClassRemarks from './pages/form-master/ClassRemarks';
+
+// Bursar Pages
+import FeePayments from './pages/bursar/FeePayments';
 
 function App() {
   return (
@@ -33,7 +45,7 @@ function App() {
           <Routes>
             {/* Public Routes */}
             <Route path="/login" element={<Login />} />
-            <Route path="/verify-result" element={<VerifyResult />} />
+            <Route path="/verify-result/:hash" element={<VerifyResult />} />
             
             {/* Authenticated Routes wrapped in AppLayout */}
             <Route 
@@ -112,6 +124,39 @@ function App() {
                 </ProtectedRoute>
               } 
             />
+
+            <Route 
+              path="/admin/subject-assignments" 
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AppLayout>
+                    <SubjectAssignments />
+                  </AppLayout>
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="/admin/class-promotion" 
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AppLayout>
+                    <ClassPromotion />
+                  </AppLayout>
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="/admin/bulk-upload" 
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AppLayout>
+                    <BulkUpload />
+                  </AppLayout>
+                </ProtectedRoute>
+              } 
+            />
             
             {/* Teacher results entry */}
             <Route 
@@ -137,7 +182,64 @@ function App() {
               } 
             />
             
-            {/* Exam Officer Approvals */}
+            {/* Form Master Routes */}
+            <Route 
+              path="/form-master/roster" 
+              element={
+                <ProtectedRoute allowedRoles={['form_master', 'admin']}>
+                  <AppLayout>
+                    <ClassRoster />
+                  </AppLayout>
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="/form-master/attendance" 
+              element={
+                <ProtectedRoute allowedRoles={['form_master', 'admin']}>
+                  <AppLayout>
+                    <ClassAttendance />
+                  </AppLayout>
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="/form-master/results" 
+              element={
+                <ProtectedRoute allowedRoles={['form_master', 'admin']}>
+                  <AppLayout>
+                    <ClassResults />
+                  </AppLayout>
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="/form-master/remarks" 
+              element={
+                <ProtectedRoute allowedRoles={['form_master', 'admin']}>
+                  <AppLayout>
+                    <ClassRemarks />
+                  </AppLayout>
+                </ProtectedRoute>
+              } 
+            />
+
+            {/* Bursar Routes */}
+            <Route 
+              path="/bursar/fee-payments" 
+              element={
+                <ProtectedRoute allowedRoles={['bursar', 'admin']}>
+                  <AppLayout>
+                    <FeePayments />
+                  </AppLayout>
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* Exam Officer Routes */}
             <Route 
               path="/exam-officer/approvals" 
               element={
@@ -149,7 +251,6 @@ function App() {
               } 
             />
             
-            {/* Exam Officer Reports */}
             <Route 
               path="/exam-officer/reports" 
               element={

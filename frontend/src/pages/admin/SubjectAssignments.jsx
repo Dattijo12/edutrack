@@ -60,6 +60,9 @@ const SubjectAssignments = () => {
         subject_id: subjectId,
       });
       setMessage('✅ Subject assigned to teacher successfully!');
+      setTeacherId('');
+      setClassId('');
+      setSubjectId('');
       fetchData();
     } catch (err) {
       console.error(err);

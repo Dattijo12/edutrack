@@ -25,6 +25,10 @@ class StoreStudentRequest extends FormRequest
             'name' => 'required|string|max:255',
             'admission_number' => 'required|string|max:100|unique:students,admission_number',
             'class_id' => 'required|exists:classes,id',
+            'gender' => 'required|in:Male,Female',
+            'dob' => 'required|date',
+            'parent_phone' => 'required|digits:11',
+            'guardian_phone' => 'nullable|digits:11',
         ];
     }
 }

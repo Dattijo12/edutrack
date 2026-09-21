@@ -10,6 +10,14 @@ const VerifyResult = () => {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    /* Guard: If no hash is provided (e.g. direct sidebar navigation), halt the
+       loading state immediately and display a user-friendly validation error. */
+    if (!hash) {
+      setError('Verification code is missing or invalid. Please scan the QR code on the printed report card.');
+      setLoading(false);
+      return;
+    }
+
     const verify = async () => {
       try {
         const res = await examOfficerService.verifyResult(hash);
@@ -21,7 +29,7 @@ const VerifyResult = () => {
         setLoading(false);
       }
     };
-    if (hash) verify();
+    verify();
   }, [hash]);
 
   return (

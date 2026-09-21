@@ -9,6 +9,12 @@ class SchoolSetting extends Model
 {
     use HasFactory;
 
+    /**
+     * The attributes that are mass assignable.
+     * Includes school metadata, dynamic scoring limits, and letter grade boundaries.
+     *
+     * @var array<int, string>
+     */
     protected $fillable = [
         'name',
         'address',
@@ -18,6 +24,11 @@ class SchoolSetting extends Model
         'principal_signature_path',
         'max_ca_score',
         'max_exam_score',
+        'grade_a_min',
+        'grade_b_min',
+        'grade_c_min',
+        'grade_d_min',
+        'grade_e_min',
     ];
 
     protected $appends = [

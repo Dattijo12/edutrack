@@ -1,7 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { ArrowLeft, FileSpreadsheet, FileText, Printer, Lock, CheckCircle2 } from 'lucide-react';
+import { 
+  ArrowLeft, FileSpreadsheet, FileText, Printer, Lock, 
+  CheckCircle2, AlertTriangle, X, MessageSquare 
+} from 'lucide-react';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import examOfficerService from '../../services/examOfficerService';
 import classService from '../../services/classService';
 import studentService from '../../services/studentService';
@@ -18,57 +25,141 @@ const Broadsheet = () => {
 
   const [loading, setLoading] = useState(false);
 
+  // Global Rejection Dialog States
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [rejectingResult, setRejectingResult] = useState(null);
+  const [submittingRejection, setSubmittingRejection] = useState(false);
+
   useEffect(() => {
-    classService.getAll().then(setClasses).catch(console.error);
+    fetchClasses();
   }, []);
+
+  const fetchClasses = async () => {
+    try {
+      const data = await examOfficerService.getClasses();
+      const classList = Array.isArray(data) ? data : (data?.data || []);
+      setClasses(classList);
+    } catch (err) {
+      console.warn('Exam Officer getClasses failed, trying classService fallback:', err);
+      try {
+        const data = await classService.getAll();
+        setClasses(Array.isArray(data) ? data : (data?.data || []));
+      } catch (fallbackErr) {
+        console.error('Failed to load class list:', fallbackErr);
+        toast.error('Failed to load available classes.');
+      }
+    }
+  };
 
   useEffect(() => {
     if (selectedClass) {
-      studentService.getByClass(selectedClass).then(setStudentsInClass).catch(console.error);
+      setBroadsheetData(null);
+      setReportCardData(null);
+
+      examOfficerService.getStudentsByClass(selectedClass)
+        .then(data => setStudentsInClass(Array.isArray(data) ? data : (data?.data || [])))
+        .catch(err => {
+          console.warn('Exam Officer getStudentsByClass failed, attempting studentService fallback:', err);
+          studentService.getByClass(selectedClass)
+            .then(data => setStudentsInClass(Array.isArray(data) ? data : (data?.data || [])))
+            .catch(fallbackErr => {
+              console.error('Failed to load student roster for class:', fallbackErr);
+              setStudentsInClass([]);
+            });
+        });
     } else {
       setStudentsInClass([]);
+      setSelectedStudentId('');
     }
   }, [selectedClass]);
 
   const handleGenerateBroadsheet = async () => {
-    if (!selectedClass) return;
+    if (!selectedClass) {
+      toast.warning('Please select a class arm from the dropdown first.');
+      return;
+    }
     setLoading(true);
     setReportCardData(null);
     try {
       const data = await examOfficerService.getBroadsheet(selectedClass);
       setBroadsheetData(data);
-      toast.success('Broadsheet generated!');
+      toast.success('Class Broadsheet generated successfully!');
     } catch (err) {
-      console.error(err);
-      toast.error('Failed to generate class broadsheet.');
+      console.error('Broadsheet generation error:', err);
+      toast.error(err?.response?.data?.message || 'Failed to generate class broadsheet.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleGenerateReportCard = async () => {
-    if (!selectedStudentId) return;
+    if (!selectedStudentId) {
+      toast.warning('Please select a student from the dropdown first.');
+      return;
+    }
     setLoading(true);
     setBroadsheetData(null);
     try {
       const data = await examOfficerService.getReportCard(selectedStudentId);
       setReportCardData(data);
-      toast.success('Report card generated!');
+      toast.success('Report card generated successfully!');
     } catch (err) {
-      console.error(err);
+      console.error('Report card generation error:', err);
       if (err?.response?.data?.locked) {
-        setReportCardData({ locked: true, message: err.response.data.message, student: err.response.data.student });
-        toast.warning('Report card locked due to outstanding fee balance.');
+        setReportCardData({ 
+          locked: true, 
+          message: err.response.data.message, 
+          student: err.response.data.student 
+        });
+        toast.warning('Report card is locked due to outstanding fee balance.');
       } else {
-        toast.error('Failed to generate report card.');
+        toast.error(err?.response?.data?.message || 'Failed to generate student report card.');
       }
     } finally {
       setLoading(false);
     }
   };
 
+  const handleApproveScore = async (resultId) => {
+    try {
+      await examOfficerService.approveResult(resultId);
+      toast.success('Score approved!');
+      handleGenerateBroadsheet();
+    } catch (err) {
+      console.error('Approval failed:', err);
+      toast.error('Failed to approve score.');
+    }
+  };
+
+  const handleRejectSubmit = async (resultId, reason) => {
+    if (!reason || !reason.trim()) {
+      toast.warning('Please enter a valid reason for rejection.');
+      return;
+    }
+
+    setSubmittingRejection(true);
+    try {
+      await examOfficerService.rejectResult(resultId, reason);
+      toast.success('Score rejected and returned to Subject Teacher with notes.');
+      handleGenerateBroadsheet();
+    } catch (err) {
+      console.error('Rejection failed:', err);
+      toast.error(err?.response?.data?.message || 'Failed to reject score.');
+    } finally {
+      setSubmittingRejection(false);
+    }
+  };
+
   const handlePrint = () => {
     window.print();
+  };
+
+  // Function to open the modal for a specific score
+  const openRejectModal = (score) => {
+    setRejectingResult(score);
+    setRejectionReason("");
+    setIsRejectModalOpen(true);
   };
 
   return (
@@ -79,9 +170,11 @@ const Broadsheet = () => {
         <Link to="/dashboard" className="back-link">
           <ArrowLeft size={16} /> Back to Dashboard
         </Link>
-        <h2 style={{ fontSize: '28px', fontWeight: '700', marginTop: '12px', marginBottom: '8px' }}>1-Click Broadsheets & Student Report Cards</h2>
+        <h2 style={{ fontSize: '28px', fontWeight: '700', marginTop: '12px', marginBottom: '8px' }}>
+          1-Click Broadsheets & Student Report Cards
+        </h2>
         <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '14px', marginBottom: '24px' }}>
-          Generate print-ready A4 Broadsheets or individual Report Cards featuring WAEC/NECO grades, fee clearance gatekeeper, and QR code verification.
+          Generate print-ready A4 Broadsheets or individual Report Cards featuring WAEC/NECO grades, fee clearance gatekeeper, human approval workflows, and QR code verification.
         </p>
 
         {/* View Mode Switcher */}
@@ -100,22 +193,43 @@ const Broadsheet = () => {
           </button>
         </div>
 
-        {/* Filters */}
+        {/* Filters Grid */}
         <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', background: 'rgba(0,0,0,0.15)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-dark)' }}>
-          <select className="glass-input" style={{ maxWidth: '260px' }} value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)}>
-            <option value="" style={{ color: '#000' }}>Select Class</option>
-            {classes.map(c => (
-              <option key={c.id} value={c.id} style={{ color: '#000' }}>{c.name} {c.arm}</option>
-            ))}
-          </select>
+          
+          <div style={{ minWidth: '240px' }}>
+            <Select value={selectedClass} onValueChange={(val) => setSelectedClass(val)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select Class Arm" />
+              </SelectTrigger>
+              <SelectContent>
+                {classes.map(c => (
+                  <SelectItem key={c.id} value={c.id.toString()}>
+                    {c.name} {c.arm}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {viewMode === 'report_card' && (
-            <select className="glass-input" style={{ maxWidth: '280px' }} value={selectedStudentId} onChange={(e) => setSelectedStudentId(e.target.value)} disabled={!selectedClass}>
-              <option value="" style={{ color: '#000' }}>Select Student</option>
-              {studentsInClass.map(s => (
-                <option key={s.id} value={s.id} style={{ color: '#000' }}>{s.first_name ? `${s.first_name} ${s.last_name}` : s.name} ({s.admission_number})</option>
-              ))}
-            </select>
+            <div style={{ minWidth: '260px' }}>
+              <Select 
+                value={selectedStudentId} 
+                onValueChange={(val) => setSelectedStudentId(val)}
+                disabled={!selectedClass}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={selectedClass ? "Select Student" : "Select Class First"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {studentsInClass.map(s => (
+                    <SelectItem key={s.id} value={s.id.toString()}>
+                      {s.first_name ? `${s.first_name} ${s.last_name}` : s.name} ({s.admission_number})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           )}
 
           {viewMode === 'broadsheet' ? (
@@ -128,7 +242,7 @@ const Broadsheet = () => {
             </button>
           )}
 
-          {(broadsheetData || reportCardData) && (
+          {(broadsheetData || (reportCardData && !reportCardData.locked)) && (
             <button onClick={handlePrint} className="btn-secondary" style={{ marginLeft: 'auto' }}>
               <Printer size={16} /> Print / Export PDF
             </button>
@@ -174,7 +288,39 @@ const Broadsheet = () => {
                       const score = row.scores[sub.id];
                       return (
                         <td key={sub.id} style={{ border: '1px solid #000', padding: '4px' }}>
-                          {score ? `${score.ca} | ${score.exam} | ${score.total}` : '-'}
+                          {score ? (
+                            <div>
+                              <div>{score.ca} | {score.exam} | <strong>{score.total}</strong></div>
+                              {score.approval_status === 'needs_correction' && (
+                                <div style={{ color: '#d32f2f', fontSize: '9px', fontWeight: 'bold', marginTop: '2px' }} className="no-print">
+                                  ⚠️ Needs Correction
+                                </div>
+                              )}
+                              {score.id && (
+                                <div className="no-print" style={{ display: 'flex', gap: '4px', justifyContent: 'center', marginTop: '4px' }}>
+                                  {score.approval_status !== 'approved' && (
+                                    <button 
+                                      onClick={() => handleApproveScore(score.id)}
+                                      title="Approve Score"
+                                      style={{ background: '#2e7d32', color: '#fff', border: 'none', borderRadius: '3px', padding: '2px 4px', cursor: 'pointer', fontSize: '9px' }}
+                                    >
+                                      ✓
+                                    </button>
+                                  )}
+                                  {score.approval_status !== 'needs_correction' && (
+                                    <Button 
+                                      variant="destructive" 
+                                      size="sm" 
+                                      className="h-6 text-[10px] px-2"
+                                      onClick={() => openRejectModal(score)}
+                                    >
+                                      Reject
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ) : '-'}
                         </td>
                       );
                     })}
@@ -201,7 +347,7 @@ const Broadsheet = () => {
               {reportCardData.message}
             </p>
             <div style={{ display: 'inline-block', padding: '12px 20px', borderRadius: '8px', background: 'rgba(0,0,0,0.2)', fontSize: '14px' }}>
-              Student: <strong>{reportCardData.student?.name}</strong> ({reportCardData.student?.class})
+              Student: <strong>{reportCardData.student?.name}</strong> ({reportCardData.student?.class_name})
             </div>
           </div>
         ) : (
@@ -234,7 +380,7 @@ const Broadsheet = () => {
               <div><strong>Name:</strong> {reportCardData.student?.name}</div>
               <div><strong>Admission No:</strong> {reportCardData.student?.admission_number}</div>
               <div><strong>Class:</strong> {reportCardData.student?.class_name}</div>
-              <div><strong>Gender:</strong> {reportCardData.student?.gender}</div>
+              <div><strong>Gender:</strong> {reportCardData.student?.gender || 'N/A'}</div>
               <div><strong>Attendance:</strong> {reportCardData.summary?.attendance}</div>
               <div><strong>Fee Status:</strong> <span style={{ color: 'green', fontWeight: 'bold' }}>CLEARED</span></div>
             </div>
@@ -274,16 +420,22 @@ const Broadsheet = () => {
 
               <div style={{ border: '1px solid #000', padding: '15px', borderRadius: '4px', textAlign: 'center', fontSize: '13px' }}>
                 <p><strong>Total Marks:</strong> {reportCardData.summary?.total_marks}</p>
-                <p style={{ marginTop: '6px', fontSize: '16px', fontWeight: '800', color: '#1a237e' }}>Average: {reportCardCardData.summary?.average}%</p>
+                <p style={{ marginTop: '6px', fontSize: '16px', fontWeight: '800', color: '#1a237e' }}>Average: {reportCardData.summary?.average}%</p>
               </div>
             </div>
 
             {/* QR Verification & Signature Footer */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '2px solid #000', paddingTop: '15px', marginTop: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                <div style={{ border: '2px solid #000', padding: '6px', background: '#f5f5f5', borderRadius: '4px', textAlign: 'center', width: '80px', height: '80px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                  <CheckCircle2 size={32} color="#0d9c3f" />
-                  <span style={{ fontSize: '8px', fontWeight: 'bold', marginTop: '2px' }}>QR VERIFIED</span>
+                <div style={{ border: '2px solid #000', padding: '4px', background: '#fff', borderRadius: '4px', textAlign: 'center', width: '80px', height: '80px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                  {reportCardData.qr_code ? (
+                    <img src={reportCardData.qr_code} alt="QR Code Verification" style={{ width: '70px', height: '70px', objectFit: 'contain' }} />
+                  ) : (
+                    <>
+                      <CheckCircle2 size={32} color="#0d9c3f" />
+                      <span style={{ fontSize: '8px', fontWeight: 'bold', marginTop: '2px' }}>QR VERIFIED</span>
+                    </>
+                  )}
                 </div>
                 <div>
                   <p style={{ fontSize: '11px', fontWeight: 'bold', margin: 0 }}>ANTI-FORGERY QR VERIFICATION</p>
@@ -305,6 +457,42 @@ const Broadsheet = () => {
           </div>
         )
       )}
+
+      {/* GLOBAL REJECTION MODAL */}
+      <Dialog open={isRejectModalOpen} onOpenChange={setIsRejectModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reason for Rejection</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Textarea 
+              placeholder="Enter specific reason for rejecting this score..." 
+              value={rejectionReason} 
+              onChange={(e) => setRejectionReason(e.target.value)} 
+              className="min-h-[100px]"
+              required 
+            />
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="outline" onClick={() => setIsRejectModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive" 
+                disabled={!rejectionReason.trim() || submittingRejection} 
+                onClick={async () => {
+                  if (rejectingResult) {
+                    await handleRejectSubmit(rejectingResult.id, rejectionReason);
+                  }
+                  setIsRejectModalOpen(false);
+                  setRejectionReason("");
+                }}
+              >
+                {submittingRejection ? "Submitting..." : "Confirm Rejection"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );

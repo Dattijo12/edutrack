@@ -16,6 +16,8 @@ class Student extends Model
         'last_name',
         'class_id',
         'gender',
+        'dob',
+        'parent_phone',
         'guardian_phone',
         'fee_cleared_status',
         'photo_path',

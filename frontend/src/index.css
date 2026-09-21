@@ -1096,3 +1096,122 @@ body {
   }
 }
 
+/* ========== shadcn/ui Select Component Styles ========== */
+.select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-dark);
+  background: rgba(255, 255, 255, 0.04);
+  color: hsl(var(--text-primary));
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.select-trigger:focus {
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 3px hsla(var(--primary), 0.15);
+}
+.select-trigger[data-placeholder] > span {
+  color: hsl(var(--text-secondary));
+}
+.select-icon {
+  width: 16px;
+  height: 16px;
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+.select-content {
+  position: relative;
+  z-index: 9999;
+  max-height: 280px;
+  min-width: 8rem;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid var(--border-dark);
+  background: hsl(var(--card-bg));
+  color: hsl(var(--text-primary));
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+  animation: selectSlideIn 0.15s ease-out;
+}
+.select-content-popper {
+  width: var(--radix-select-trigger-width);
+}
+@keyframes selectSlideIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.select-viewport {
+  padding: 6px;
+}
+.select-viewport-popper {
+  height: var(--radix-select-content-available-height);
+}
+.select-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  cursor: pointer;
+  padding: 8px 10px 8px 30px;
+  border-radius: 8px;
+  outline: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.15s;
+  color: hsl(var(--text-primary));
+}
+.select-item:focus,
+.select-item[data-highlighted] {
+  background: rgba(92, 124, 250, 0.12);
+  color: #7b93ff;
+}
+.select-item[data-disabled] {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.select-item-indicator {
+  position: absolute;
+  left: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+}
+.select-check-icon {
+  width: 14px;
+  height: 14px;
+  color: #7b93ff;
+}
+.select-label {
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: hsl(var(--text-secondary));
+}
+.select-separator {
+  margin: 4px -6px;
+  height: 1px;
+  background: var(--border-dark);
+}
+.select-scroll-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  cursor: default;
+}
+.select-scroll-icon {
+  width: 14px;
+  height: 14px;
+  color: hsl(var(--text-secondary));
+}

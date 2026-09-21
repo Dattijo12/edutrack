@@ -51,39 +51,55 @@ class UserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'phone' => 'nullable|string|max:20',
+            'gender' => ['nullable', Rule::in(['Male', 'Female'])],
             'role' => ['required', Rule::in(['admin', 'exam_officer', 'bursar', 'form_master', 'teacher'])],
             'password' => 'required|string|min:6',
             'status' => ['required', Rule::in(['active', 'inactive'])],
             'assigned_class_id' => 'nullable|exists:classes,id',
+            'assigned_class_ids' => 'nullable|array',
+            'assigned_class_ids.*' => 'exists:classes,id',
             'assigned_subject_ids' => 'nullable|array',
             'assigned_subject_ids.*' => 'exists:subjects,id',
         ]);
+
+        if ($validated['role'] !== 'form_master') {
+            $validated['assigned_class_id'] = null;
+        }
+
+        if ($validated['role'] !== 'teacher') {
+            $validated['assigned_class_ids'] = null;
+            $validated['assigned_subject_ids'] = null;
+        }
 
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'phone' => $validated['phone'] ?? null,
+            'gender' => $validated['gender'] ?? null,
             'role' => $validated['role'],
             'password' => Hash::make($validated['password']),
             'status' => $validated['status'],
         ]);
 
-        // Process Subject & Class Assignments if role is teacher or form master
-        if (in_array($user->role, ['teacher', 'form_master'])) {
-            if (!empty($validated['assigned_subject_ids'])) {
-                $classId = $validated['assigned_class_id'] ?? SchoolClass::first()->id ?? 1;
-                foreach ($validated['assigned_subject_ids'] as $subjectId) {
-                    SubjectAssignment::firstOrCreate([
-                        'teacher_id' => $user->id,
-                        'class_id' => $classId,
-                        'subject_id' => $subjectId,
-                    ]);
-                }
-            }
+        if ($user->role === 'form_master' && !empty($validated['assigned_class_id'])) {
+            SchoolClass::where('id', $validated['assigned_class_id'])
+                ->update(['form_master_id' => $user->id]);
+        }
 
-            if ($user->role === 'form_master' && !empty($validated['assigned_class_id'])) {
-                SchoolClass::where('id', $validated['assigned_class_id'])
-                    ->update(['form_master_id' => $user->id]);
+        if ($user->role === 'teacher') {
+            $classIds = $validated['assigned_class_ids'] ?? [];
+            $subjectIds = $validated['assigned_subject_ids'] ?? [];
+
+            if (!empty($classIds) && !empty($subjectIds)) {
+                foreach ($classIds as $classId) {
+                    foreach ($subjectIds as $subjectId) {
+                        SubjectAssignment::firstOrCreate([
+                            'teacher_id' => $user->id,
+                            'class_id' => $classId,
+                            'subject_id' => $subjectId,
+                        ]);
+                    }
+                }
             }
         }
 
@@ -113,13 +129,28 @@ class UserController extends Controller
             'name' => 'sometimes|required|string|max:255',
             'email' => ['sometimes', 'required', 'email', Rule::unique('users')->ignore($user->id)],
             'phone' => 'nullable|string|max:20',
+            'gender' => ['nullable', Rule::in(['Male', 'Female'])],
             'role' => ['sometimes', 'required', Rule::in(['admin', 'exam_officer', 'bursar', 'form_master', 'teacher'])],
             'status' => ['sometimes', 'required', Rule::in(['active', 'inactive'])],
             'password' => 'nullable|string|min:6',
             'assigned_class_id' => 'nullable|exists:classes,id',
+            'assigned_class_ids' => 'nullable|array',
+            'assigned_class_ids.*' => 'exists:classes,id',
             'assigned_subject_ids' => 'nullable|array',
             'assigned_subject_ids.*' => 'exists:subjects,id',
         ]);
+
+        $role = $validated['role'] ?? $user->role;
+
+        if ($role !== 'form_master') {
+            $validated['assigned_class_id'] = null;
+        }
+
+        if ($role !== 'teacher') {
+            $validated['assigned_class_ids'] = null;
+            $validated['assigned_subject_ids'] = null;
+            SubjectAssignment::where('teacher_id', $user->id)->delete();
+        }
 
         if (!empty($validated['password'])) {
             $validated['password'] = Hash::make($validated['password']);
@@ -129,27 +160,40 @@ class UserController extends Controller
 
         $user->update($validated);
 
-        // Update assignments if provided for teachers or form masters
-        if (isset($validated['assigned_subject_ids'])) {
-            SubjectAssignment::where('teacher_id', $user->id)->delete();
+        if ($user->role === 'teacher') {
+            $hasClasses = array_key_exists('assigned_class_ids', $validated);
+            $hasSubjects = array_key_exists('assigned_subject_ids', $validated);
 
-            if (!empty($validated['assigned_subject_ids'])) {
-                $classId = $validated['assigned_class_id'] ?? (SchoolClass::first()->id ?? 1);
-                foreach ($validated['assigned_subject_ids'] as $subjectId) {
-                    SubjectAssignment::firstOrCreate([
-                        'teacher_id' => $user->id,
-                        'class_id' => $classId,
-                        'subject_id' => $subjectId,
-                    ]);
+            if ($hasClasses || $hasSubjects) {
+                $classIds = $hasClasses 
+                    ? ($validated['assigned_class_ids'] ?? [])
+                    : SubjectAssignment::where('teacher_id', $user->id)->pluck('class_id')->unique()->toArray();
+
+                $subjectIds = $hasSubjects 
+                    ? ($validated['assigned_subject_ids'] ?? [])
+                    : SubjectAssignment::where('teacher_id', $user->id)->pluck('subject_id')->unique()->toArray();
+
+                SubjectAssignment::where('teacher_id', $user->id)->delete();
+
+                if (!empty($classIds) && !empty($subjectIds)) {
+                    foreach ($classIds as $classId) {
+                        foreach ($subjectIds as $subjectId) {
+                            SubjectAssignment::firstOrCreate([
+                                'teacher_id' => $user->id,
+                                'class_id' => $classId,
+                                'subject_id' => $subjectId,
+                            ]);
+                        }
+                    }
                 }
             }
         }
 
-        if (isset($validated['assigned_class_id']) && $user->role === 'form_master') {
+        if (array_key_exists('assigned_class_id', $validated)) {
             // Reset previous class assignments for this user
             SchoolClass::where('form_master_id', $user->id)->update(['form_master_id' => null]);
             
-            if ($validated['assigned_class_id']) {
+            if ($user->role === 'form_master' && $validated['assigned_class_id']) {
                 SchoolClass::where('id', $validated['assigned_class_id'])
                     ->update(['form_master_id' => $user->id]);
             }

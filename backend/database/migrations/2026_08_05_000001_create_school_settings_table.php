@@ -18,6 +18,11 @@ return new class extends Migration
             $table->string('principal_signature_path')->nullable();
             $table->decimal('max_ca_score', 5, 2)->default(30.00);
             $table->decimal('max_exam_score', 5, 2)->default(70.00);
+            $table->integer('grade_a_min')->default(70);
+            $table->integer('grade_b_min')->default(60);
+            $table->integer('grade_c_min')->default(50);
+            $table->integer('grade_d_min')->default(45);
+            $table->integer('grade_e_min')->default(40);
             $table->timestamps();
         });
     }
