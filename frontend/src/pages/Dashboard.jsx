@@ -12,6 +12,7 @@ import { useSchool } from '../context/SchoolContext';
 import analyticsService from '../services/analyticsService';
 import resultService from '../services/resultService';
 import formMasterService from '../services/formMasterService';
+import GuardianDashboard from './guardian/GuardianDashboard';
 
 const CHART_COLORS = ['#7b93ff', '#ff7be1', '#00f2fe', '#ffb400', '#00e676', '#ff4b4b', '#a78bfa', '#f472b6'];
 
@@ -19,6 +20,10 @@ const Dashboard = () => {
   const { user } = useAuth();
   const { school } = useSchool();
   const navigate = useNavigate();
+
+  if (user?.role === 'guardian' || user?.role === 'parent') {
+    return <GuardianDashboard />;
+  }
 
   const [enrollmentData, setEnrollmentData] = useState([]);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
@@ -28,12 +33,12 @@ const Dashboard = () => {
   const [formMasterClass, setFormMasterClass] = useState(null);
 
   useEffect(() => {
-    // Fetch enrollment analytics for Admin and Exam Officer
+    // Fetch enrollment analytics based on user role (Admin or Exam Officer)
     const fetchAnalytics = async () => {
-      if (user?.role === 'admin' || user?.role === 'exam_officer') {
+      if (user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'exam_officer') {
         try {
           setAnalyticsLoading(true);
-          const data = await analyticsService.getEnrollmentByClass();
+          const data = await analyticsService.getEnrollmentByClass(user?.role);
           setEnrollmentData(data || []);
         } catch (err) {
           console.error('Failed to fetch analytics:', err);

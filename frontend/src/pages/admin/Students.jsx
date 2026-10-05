@@ -33,7 +33,9 @@ const Students = () => {
   const [classId, setClassId] = useState('');
   const [gender, setGender] = useState('');
   const [dob, setDob] = useState('');
-  const [parentPhone, setParentPhone] = useState('');
+  const [guardianName, setGuardianName] = useState('');
+  const [guardianPhone, setGuardianPhone] = useState('');
+  const [guardianRelationship, setGuardianRelationship] = useState('Father');
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [studentToDelete, setStudentToDelete] = useState(null);
@@ -85,7 +87,9 @@ const Students = () => {
     setClassId(student ? student.class_id : '');
     setGender(student ? student.gender || '' : '');
     setDob(student ? student.dob || '' : '');
-    setParentPhone(student ? student.parent_phone || '' : '');
+    setGuardianName(student ? (student.guardian?.name || student.guardian_name || '') : '');
+    setGuardianPhone(student ? (student.guardian_phone || student.parent_phone || '') : '');
+    setGuardianRelationship(student ? (student.guardian?.relationship || student.guardian_relationship || 'Father') : 'Father');
     setShowModal(true);
   };
 
@@ -97,13 +101,15 @@ const Students = () => {
     setClassId('');
     setGender('');
     setDob('');
-    setParentPhone('');
+    setGuardianName('');
+    setGuardianPhone('');
+    setGuardianRelationship('Father');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!/^\d{11}$/.test(parentPhone)) {
+    if (!/^\d{11}$/.test(guardianPhone)) {
       toast.error('Guardian phone number must be exactly 11 numeric digits.');
       return;
     }
@@ -117,7 +123,10 @@ const Students = () => {
         class_id: parseInt(classId, 10),
         gender,
         dob,
-        parent_phone: parentPhone
+        guardian_name: guardianName,
+        guardian_phone: guardianPhone,
+        guardian_relationship: guardianRelationship,
+        parent_phone: guardianPhone
       };
 
       if (currentStudent) {
@@ -133,6 +142,7 @@ const Students = () => {
     } catch (err) {
       console.error(err);
       const msg = err.response?.data?.message 
+        || err.response?.data?.errors?.guardian_phone?.[0]
         || err.response?.data?.errors?.parent_phone?.[0]
         || err.response?.data?.errors?.admission_number?.[0] 
         || err.response?.data?.errors?.class_id?.[0] 
@@ -284,7 +294,7 @@ const Students = () => {
       {/* Modal Form */}
       {showModal && (
         <div className="modal-overlay">
-          <div className="glass-panel modal-content animate-slide-up">
+          <div className="glass-panel modal-content animate-slide-up" style={{ maxWidth: '560px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h2 style={{ fontSize: '20px', fontWeight: '700' }}>
                 {currentStudent ? 'Edit Student Profile' : 'Register New Student'}
@@ -350,35 +360,72 @@ const Students = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div>
-                  <label className="form-label">Date of Birth</label>
-                  <input
-                    type="date"
-                    className="glass-input"
-                    value={dob}
-                    onChange={(e) => setDob(e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="form-label">Guardian Phone Number</label>
-                  <input
-                    type="text"
-                    className="glass-input"
-                    value={parentPhone}
-                    onChange={(e) => setParentPhone(e.target.value.replace(/\D/g, ''))}
-                    placeholder="e.g. 08012345678"
-                    minLength={11}
-                    maxLength={11}
-                    pattern="[0-9]{11}"
-                    required
-                  />
-                  {parentPhone && parentPhone.length !== 11 && (
-                    <span style={{ color: '#ff4b4b', fontSize: '12px', marginTop: '4px', display: 'block' }}>
-                      Must be exactly 11 numeric digits ({parentPhone.length}/11).
-                    </span>
-                  )}
+              <div>
+                <label className="form-label">Date of Birth</label>
+                <input
+                  type="date"
+                  className="glass-input"
+                  value={dob}
+                  onChange={(e) => setDob(e.target.value)}
+                  required
+                />
+              </div>
+
+              {/* Guardian Information Section */}
+              <div style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '16px', marginTop: '8px' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '12px', color: 'hsl(var(--accent))' }}>
+                  Guardian / Parent Information
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div>
+                    <label className="form-label">Guardian Full Name</label>
+                    <input
+                      type="text"
+                      className="glass-input"
+                      value={guardianName}
+                      onChange={(e) => setGuardianName(e.target.value)}
+                      placeholder="e.g. Alhaji Ibrahim Musa"
+                      required
+                    />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div>
+                      <label className="form-label">Guardian Phone Number</label>
+                      <input
+                        type="text"
+                        className="glass-input"
+                        value={guardianPhone}
+                        onChange={(e) => setGuardianPhone(e.target.value.replace(/\D/g, ''))}
+                        placeholder="e.g. 08012345678"
+                        minLength={11}
+                        maxLength={11}
+                        pattern="[0-9]{11}"
+                        required
+                      />
+                      {guardianPhone && guardianPhone.length !== 11 && (
+                        <span style={{ color: '#ff4b4b', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                          Must be 11 digits ({guardianPhone.length}/11).
+                        </span>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="form-label">Guardian Relationship</label>
+                      <Select value={guardianRelationship} onValueChange={(val) => setGuardianRelationship(val)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Relationship" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Father">Father</SelectItem>
+                          <SelectItem value="Mother">Mother</SelectItem>
+                          <SelectItem value="Uncle">Uncle</SelectItem>
+                          <SelectItem value="Aunt">Aunt</SelectItem>
+                          <SelectItem value="Sponsor">Sponsor</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                 </div>
               </div>
 

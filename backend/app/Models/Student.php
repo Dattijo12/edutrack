@@ -15,6 +15,7 @@ class Student extends Model
         'first_name',
         'last_name',
         'class_id',
+        'guardian_id',
         'gender',
         'dob',
         'parent_phone',
@@ -39,6 +40,11 @@ class Student extends Model
     public function class()
     {
         return $this->belongsTo(SchoolClass::class, 'class_id');
+    }
+
+    public function guardian()
+    {
+        return $this->belongsTo(Guardian::class);
     }
 
     public function results()

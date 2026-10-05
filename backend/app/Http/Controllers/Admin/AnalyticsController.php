@@ -10,17 +10,19 @@ class AnalyticsController extends Controller
 {
     public function enrollment()
     {
-        $classes = SchoolClass::all();
+        $classes = SchoolClass::orderBy('name')->get();
         $analytics = [];
 
         foreach ($classes as $class) {
             $count = Student::where('class_id', $class->id)->count();
             
-            $className = $class->name . ($class->arm ? ' ' . $class->arm : '');
+            $className = trim($class->name . ($class->arm ? ' ' . $class->arm : ''));
             
             $analytics[] = [
                 'class_name' => $className,
-                'student_count' => $count
+                'name' => $className,
+                'student_count' => $count,
+                'count' => $count,
             ];
         }
 

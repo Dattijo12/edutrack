@@ -8,28 +8,30 @@ const DialogTrigger = DialogPrimitive.Trigger;
 const DialogPortal = DialogPrimitive.Portal;
 const DialogClose = DialogPrimitive.Close;
 
-const DialogOverlay = React.forwardRef(({ className, ...props }, ref) => (
+const DialogOverlay = React.forwardRef(({ className, style, ...props }, ref) => (
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      "fixed inset-0 z-50 bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 modal-backdrop-dark",
       className
     )}
     style={{
       position: 'fixed',
       inset: 0,
       zIndex: 9999,
-      backgroundColor: 'rgba(0, 0, 0, 0.75)',
-      backdropFilter: 'blur(6px)'
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      backdropFilter: 'blur(4px)',
+      WebkitBackdropFilter: 'blur(4px)',
+      ...style
     }}
     {...props}
   />
 ));
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
-const DialogContent = React.forwardRef(({ className, children, ...props }, ref) => (
+const DialogContent = React.forwardRef(({ className, children, style, overlayStyle, ...props }, ref) => (
   <DialogPortal>
-    <DialogOverlay />
+    <DialogOverlay style={overlayStyle} />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
@@ -43,13 +45,14 @@ const DialogContent = React.forwardRef(({ className, children, ...props }, ref) 
         transform: 'translate(-50%, -50%)',
         zIndex: 10000,
         width: '90%',
-        maxWidth: '500px',
-        backgroundColor: '#121829',
-        border: '1px solid rgba(255, 255, 255, 0.15)',
-        borderRadius: '16px',
-        padding: '24px',
-        color: '#fff',
-        boxShadow: '0 20px 40px rgba(0,0,0,0.6)'
+        maxWidth: '520px',
+        backgroundColor: '#ffffff',
+        color: '#1e293b',
+        border: '1px solid #e2e8f0',
+        borderRadius: '8px',
+        padding: '28px',
+        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+        ...style
       }}
       {...props}
     >
@@ -61,7 +64,7 @@ const DialogContent = React.forwardRef(({ className, children, ...props }, ref) 
           top: '16px',
           background: 'none',
           border: 'none',
-          color: 'rgba(255,255,255,0.6)',
+          color: '#64748b',
           cursor: 'pointer',
           padding: '4px'
         }}

@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
 
@@ -1215,3 +1219,170 @@ body {
   height: 14px;
   color: hsl(var(--text-secondary));
 }
+
+/* ======================================================
+   REJECT BUTTON & REJECT REASON MODAL STYLES
+   ====================================================== */
+
+/* Reject Trigger Button */
+.btn-reject {
+  background-color: #ef4444 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  font-size: 13px !important;
+  padding: 8px 16px !important;
+  border-radius: 8px !important;
+  border: none !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3) !important;
+}
+
+.btn-reject:hover:not(:disabled) {
+  background-color: #dc2626 !important;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4) !important;
+  transform: translateY(-1px) !important;
+}
+
+.btn-reject:active:not(:disabled) {
+  transform: translateY(0) !important;
+}
+
+.btn-reject:disabled {
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+/* Modal Overlay Backdrop */
+.modal-backdrop-dark {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* Modal Container Box */
+.reject-modal-container {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10000;
+  width: 90%;
+  max-width: 520px;
+  background-color: #ffffff !important;
+  color: #1e293b !important;
+  border-radius: 8px !important;
+  padding: 28px !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+/* Modal Title */
+.reject-modal-title {
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  color: #991b1b !important;
+  margin-bottom: 8px !important;
+}
+
+/* Modal Helper Text */
+.reject-modal-text {
+  font-size: 14px !important;
+  color: #64748b !important;
+  margin-bottom: 16px !important;
+  line-height: 1.5 !important;
+}
+
+/* Reason Input Textarea */
+.reject-textarea {
+  width: 100% !important;
+  padding: 12px 14px !important;
+  border-radius: 8px !important;
+  border: 1px solid #cbd5e1 !important;
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  outline: none !important;
+  resize: vertical !important;
+  min-height: 110px !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+  font-family: inherit !important;
+}
+
+.reject-textarea:focus {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18) !important;
+}
+
+.reject-textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Action Buttons Wrapper (Bottom Right) */
+.reject-modal-actions {
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  gap: 12px !important;
+  margin-top: 24px !important;
+}
+
+/* Cancel Button (Neutral Gray Style) */
+.btn-reject-cancel {
+  background-color: #f1f5f9 !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #475569 !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  padding: 10px 20px !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.btn-reject-cancel:hover {
+  background-color: #e2e8f0 !important;
+  color: #1e293b !important;
+  border-color: #94a3b8 !important;
+}
+
+/* Submit Reason Button (Prominent Solid Red) */
+.btn-reject-submit {
+  background-color: #ef4444 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  font-size: 14px !important;
+  padding: 10px 22px !important;
+  border-radius: 8px !important;
+  border: none !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35) !important;
+}
+
+.btn-reject-submit:hover:not(:disabled) {
+  background-color: #dc2626 !important;
+  box-shadow: 0 6px 16px rgba(220, 38, 38, 0.45) !important;
+  transform: translateY(-1px) !important;
+}
+
+.btn-reject-submit:disabled {
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+

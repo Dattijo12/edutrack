@@ -77,6 +77,11 @@ Route::middleware('auth:sanctum')->group(function () {
      * 3. BURSAR ROLE ROUTES
      */
     Route::middleware('role:bursar,admin')->prefix('bursar')->group(function () {
+        Route::get('/classes', 'App\Http\Controllers\Bursar\BursarController@getClasses');
+        Route::get('/students-by-class', 'App\Http\Controllers\Bursar\BursarController@getStudentsByClass');
+        Route::get('/payments', 'App\Http\Controllers\Bursar\BursarController@index');
+        Route::post('/payments', 'App\Http\Controllers\Bursar\BursarController@store');
+        
         Route::get('/students', 'App\Http\Controllers\Bursar\FeePaymentController@index');
         Route::post('/record-payment', 'App\Http\Controllers\Bursar\FeePaymentController@recordPayment');
         Route::post('/students/{student}/toggle-clearance', 'App\Http\Controllers\Bursar\FeePaymentController@toggleClearance');
@@ -97,13 +102,26 @@ Route::middleware('auth:sanctum')->group(function () {
      */
     Route::middleware('role:exam_officer,admin,form_master')->prefix('exam-officer')->group(function () {
         Route::get('/results/pending', 'App\Http\Controllers\ExamOfficer\ResultController@pending')->name('exam_officer.results.pending');
+        Route::post('/results/bulk-approve', 'App\Http\Controllers\ExamOfficer\ResultController@bulkApprove')->name('exam_officer.results.bulk_approve');
         Route::post('/results/{result}/approve', 'App\Http\Controllers\ExamOfficer\ResultController@approve')->name('exam_officer.results.approve');
         Route::post('/results/{result}/reject', 'App\Http\Controllers\ExamOfficer\ResultController@reject')->name('exam_officer.results.reject');
         
+        Route::get('/reports/class', 'App\Http\Controllers\ExamOfficer\ResultController@classReport')->name('exam_officer.reports.class_query');
         Route::get('/reports/class/{class}', 'App\Http\Controllers\ExamOfficer\ResultController@classReport')->name('exam_officer.reports.class');
+        Route::get('/broadsheet', 'App\Http\Controllers\ExamOfficer\BroadsheetController@getBroadsheet')->name('exam_officer.broadsheet');
         Route::get('/broadsheet/{class}', 'App\Http\Controllers\ExamOfficer\BroadsheetController@generateBroadsheet');
         Route::get('/report-card/{student}', 'App\Http\Controllers\ExamOfficer\BroadsheetController@generateReportCard');
         Route::get('/classes', 'App\Http\Controllers\Admin\ClassController@index');
+        Route::get('/subjects', 'App\Http\Controllers\Admin\SubjectController@index');
         Route::get('/students', 'App\Http\Controllers\Teacher\ResultController@students');
+        Route::get('/analytics/enrollment', 'App\Http\Controllers\Admin\AnalyticsController@enrollment');
+    });
+
+    /**
+     * 6. GUARDIAN PORTAL ROUTES
+     */
+    Route::middleware('role:guardian,parent,admin')->prefix('guardian')->group(function () {
+        Route::get('/dashboard', 'App\Http\Controllers\Guardian\GuardianDashboardController@index');
+        Route::get('/students/{student}/results', 'App\Http\Controllers\Guardian\GuardianDashboardController@studentResults');
     });
 });

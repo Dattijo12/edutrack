@@ -6,20 +6,29 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
 const Login = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [credentials, setCredentials] = useState({
+    login_id: '',
+    password: '',
+  });
   const [loading, setLoading] = useState(false);
 
   const { login } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
+  const handleChange = (e) => {
+    setCredentials({
+      ...credentials,
+      [e.target.name]: e.target.value,
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      await login(email, password);
+      await login(credentials.login_id, credentials.password);
       toast.success('Signed in successfully! Welcome back.');
       navigate('/dashboard');
     } catch (err) {
@@ -27,6 +36,7 @@ const Login = () => {
       const responseData = err?.response?.data;
       const backendMessage =
         responseData?.message ||
+        responseData?.errors?.login_id?.[0] ||
         responseData?.errors?.email?.[0] ||
         responseData?.errors?.password?.[0];
 
@@ -45,10 +55,12 @@ const Login = () => {
     }
   };
 
-  const autofillUser = (roleEmail, rolePass) => {
-    setEmail(roleEmail);
-    setPassword(rolePass);
-    toast.info(`Autofilled demo credentials for ${roleEmail}`);
+  const autofillUser = (roleLoginId, rolePass) => {
+    setCredentials({
+      login_id: roleLoginId,
+      password: rolePass,
+    });
+    toast.info(`Autofilled demo credentials for ${roleLoginId}`);
   };
 
   return (
@@ -98,31 +110,35 @@ const Login = () => {
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div>
-            <label className="form-label">Email Address</label>
+            <label htmlFor="login_id" className="form-label">Email Address or Phone Number</label>
             <div style={{ position: 'relative' }}>
               <Mail size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-secondary))' }} />
               <input 
-                type="email" 
+                id="login_id"
+                name="login_id"
+                type="text" 
                 className="glass-input"
                 style={{ paddingLeft: '38px' }}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="e.g. admin@school.com"
+                value={credentials.login_id}
+                onChange={handleChange}
+                placeholder="e.g. admin@school.com or 08012345678"
                 required
               />
             </div>
           </div>
 
           <div>
-            <label className="form-label">Password</label>
+            <label htmlFor="password" className="form-label">Password</label>
             <div style={{ position: 'relative' }}>
               <Lock size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-secondary))' }} />
               <input 
+                id="password"
+                name="password"
                 type="password" 
                 className="glass-input"
                 style={{ paddingLeft: '38px' }}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                value={credentials.password}
+                onChange={handleChange}
                 placeholder="••••••••"
                 required
               />

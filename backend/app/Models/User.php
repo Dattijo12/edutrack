@@ -59,6 +59,16 @@ class User extends Authenticatable
         return $this->role === 'teacher';
     }
 
+    public function isGuardian(): bool
+    {
+        return $this->role === 'guardian' || $this->role === 'parent';
+    }
+
+    public function guardian()
+    {
+        return $this->hasOne(Guardian::class);
+    }
+
     public function results()
     {
         return $this->hasMany(Result::class, 'teacher_id');

@@ -2,10 +2,18 @@ import api from './api';
 
 const examOfficerService = {
   /**
-   * Fetch all student result entries pending verification and approval.
+   * Fetch student result entries pending verification and approval, with optional class_id and subject_id filtering.
    */
-  async getPendingResults() {
-    const res = await api.get('/exam-officer/results/pending');
+  async getPendingResults(params = {}) {
+    const res = await api.get('/exam-officer/results/pending', { params });
+    return res.data;
+  },
+
+  /**
+   * Bulk approve multiple student result entries.
+   */
+  async bulkApprove(resultIds) {
+    const res = await api.post('/exam-officer/results/bulk-approve', { result_ids: resultIds });
     return res.data;
   },
 
@@ -37,7 +45,7 @@ const examOfficerService = {
    * Fetch class master broadsheet grid for the specified class, term, and academic session.
    */
   async getBroadsheet(classId, term = '1st Term', session = '2025/2026') {
-    const res = await api.get(`/exam-officer/broadsheet/${classId}`, { params: { term, session } });
+    const res = await api.get('/exam-officer/broadsheet', { params: { class_id: classId, term, session } });
     return res.data;
   },
 
@@ -54,6 +62,22 @@ const examOfficerService = {
    */
   async getClasses() {
     const res = await api.get('/exam-officer/classes');
+    return res.data;
+  },
+
+  /**
+   * Fetch all active subjects.
+   */
+  async getSubjects() {
+    const res = await api.get('/exam-officer/subjects');
+    return res.data;
+  },
+
+  /**
+   * Fetch class performance report for a specific class ID, term, and session.
+   */
+  async getClassReport(classId, term = '1st Term', session = '2025/2026') {
+    const res = await api.get(`/exam-officer/reports/class/${classId}`, { params: { term, session } });
     return res.data;
   },
 

@@ -9,10 +9,11 @@ const bulkUploadService = {
    * Upload an array of student records for batch registration.
    * Existing admission numbers are skipped (not overwritten).
    * @param {Array} students - Array of student objects.
+   * @param {number} classId - The class ID to assign to all students.
    * @returns {Promise<Object>} Response with inserted count and skipped rows.
    */
-  async uploadStudents(students) {
-    const res = await api.post('/admin/bulk-upload/students', { students });
+  async uploadStudents(students, classId) {
+    const res = await api.post('/admin/bulk-upload/students', { students, class_id: classId });
     return res.data;
   },
 

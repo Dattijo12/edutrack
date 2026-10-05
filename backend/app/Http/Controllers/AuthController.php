@@ -12,17 +12,34 @@ class AuthController extends Controller
 {
     public function login(Request $request)
     {
+        // Support backward-compatibility if request passes email/phone instead of login_id
+        if (!$request->has('login_id') && ($request->has('email') || $request->has('phone'))) {
+            $request->merge(['login_id' => $request->input('email') ?? $request->input('phone')]);
+        }
+
         $request->validate([
-            'email' => 'required|email',
+            'login_id' => 'required|string',
             'password' => 'required|string',
         ]);
 
-        $user = User::where('email', $request->email)->first();
+        $loginId = trim($request->login_id);
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            throw ValidationException::withMessages([
-                'email' => ['The provided credentials are incorrect.'],
-            ]);
+        // Debug: Check if user exists
+        $user = User::where('email', $loginId)
+                    ->orWhere('phone', $loginId)
+                    ->first();
+
+        if (!$user) {
+            return response()->json([
+                'message' => 'DEBUG: User not found in database for ID: ' . $loginId
+            ], 401);
+        }
+
+        // Debug: Check password match
+        if (!Hash::check($request->password, $user->password)) {
+            return response()->json([
+                'message' => 'DEBUG: Password mismatch for user phone: ' . $user->phone
+            ], 401);
         }
 
         if ($user->status === 'inactive') {
@@ -31,6 +48,7 @@ class AuthController extends Controller
             ], 403);
         }
 
+        // Generate Sanctum token
         $token = $user->createToken('auth-token')->plainTextToken;
 
         return response()->json([

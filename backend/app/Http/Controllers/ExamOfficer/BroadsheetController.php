@@ -16,99 +16,161 @@ use Illuminate\Http\Request;
 class BroadsheetController extends Controller
 {
     /**
-     * Generate 1-Click Class Broadsheet (A4 Landscape Data Grid)
+     * Get Broadsheet Summary Data Structure for Matrix Rendering.
+     * Endpoint: /api/exam-officer/broadsheet?class_id=X&term=Y&session=Z
      */
-    public function generateBroadsheet(Request $request, $classId)
+    public function getBroadsheet(Request $request, $classId = null)
     {
-        $term = $request->query('term', '1st Term');
-        $session = $request->query('session', '2025/2026');
+        $classId = $request->query('class_id') ?: $classId;
 
-        $schoolClass = SchoolClass::findOrFail($classId);
-        $students = Student::where('class_id', $classId)->orderBy('first_name')->get();
-        $subjects = Subject::orderBy('code')->get();
-        $settings = SchoolSetting::first();
+        if (!$classId) {
+            return response()->json([
+                'message' => 'The class_id query parameter is required.'
+            ], 422);
+        }
 
-        $broadsheetData = [];
+        $activeTermObj = AcademicTerm::where('is_current', true)->first() ?? AcademicTerm::latest()->first();
+        $defaultTerm = $activeTermObj?->term ?? '1st Term';
+        $defaultSession = $activeTermObj?->session ?? '2025/2026';
+
+        $term = $request->query('term') ?: $defaultTerm;
+        $session = $request->query('session') ?: $defaultSession;
+
+        $schoolClass = SchoolClass::find($classId);
+        if (!$schoolClass) {
+            return response()->json([
+                'message' => "Class not found for ID: {$classId}"
+            ], 404);
+        }
+
+        $schoolSettings = SchoolSetting::first();
+
+        // 1. Fetch all students belonging to the specified class_id
+        $students = Student::where('class_id', $classId)
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get();
+
+        // 2. Fetch all subjects offered / available
+        $subjects = Subject::orderBy('name')->get()->map(function ($subject) {
+            return [
+                'id' => $subject->id,
+                'name' => $subject->name,
+                'code' => $subject->code ?? $subject->subject_code ?? 'SUB',
+            ];
+        });
+
+        // 3. For each student, fetch approved results for specified term & session
+        $studentsData = [];
+
+        // Flexible term variations for smart term matching
+        $termVariations = array_values(array_unique([
+            $term,
+            str_replace(['1st', '2nd', '3rd'], ['First', 'Second', 'Third'], $term),
+            str_replace(['First', 'Second', 'Third'], ['1st', '2nd', '3rd'], $term),
+            str_replace(['1st Term', '2nd Term', '3rd Term'], ['Term 1', 'Term 2', 'Term 3'], $term),
+            str_replace(['First Term', 'Second Term', 'Third Term'], ['Term 1', 'Term 2', 'Term 3'], $term),
+            str_replace(['Term 1', 'Term 2', 'Term 3'], ['1st Term', '2nd Term', '3rd Term'], $term),
+            str_replace(['Term 1', 'Term 2', 'Term 3'], ['First Term', 'Second Term', 'Third Term'], $term),
+            str_replace(['1st Term', '2nd Term', '3rd Term', 'First Term', 'Second Term', 'Third Term', 'Term 1', 'Term 2', 'Term 3'], ['1', '2', '3', '1', '2', '3', '1', '2', '3'], $term),
+        ]));
 
         foreach ($students as $student) {
-            $studentResults = Result::where('student_id', $student->id)
-                ->where('term', $term)
+            $approvedResults = Result::where('student_id', $student->id)
+                ->whereIn('term', $termVariations)
                 ->where('academic_session', $session)
-                ->get()
-                ->keyBy('subject_id');
+                ->where(function ($q) {
+                    $q->where('approval_status', 'approved')
+                      ->orWhere('status', 'approved');
+                })
+                ->get();
 
-            $subjectScores = [];
+            $resultsMap = [];
             $totalMarks = 0;
             $subjectCount = 0;
 
-            foreach ($subjects as $subject) {
-                $res = $studentResults->get($subject->id);
-                if ($res) {
-                    $subjectScores[$subject->id] = [
-                        'id' => $res->id,
-                        'ca' => (float)$res->ca_score,
-                        'exam' => (float)$res->exam_score,
-                        'total' => (float)$res->total_score,
-                        'grade' => $res->grade,
-                        'status' => $res->status ?? $res->approval_status ?? 'pending',
-                        'approval_status' => $res->approval_status ?? $res->status ?? 'pending',
-                        'rejection_reason' => $res->rejection_reason,
-                    ];
-                    $totalMarks += $res->total_score;
-                    $subjectCount++;
-                } else {
-                    $subjectScores[$subject->id] = null;
-                }
+            foreach ($approvedResults as $res) {
+                $ca = (float) ($res->ca_score ?? 0);
+                $exam = (float) ($res->exam_score ?? 0);
+                $total = (float) ($res->total_score ?? ($ca + $exam));
+                $subjectKey = (string) $res->subject_id;
+
+                $resultsMap[$subjectKey] = [
+                    'id' => $res->id,
+                    'ca' => $ca,
+                    'exam' => $exam,
+                    'total' => $total,
+                    'grade' => $res->grade ?? '',
+                    'status' => $res->approval_status ?? $res->status ?? 'approved',
+                ];
+
+                $totalMarks += $total;
+                $subjectCount++;
             }
 
             $average = $subjectCount > 0 ? round($totalMarks / $subjectCount, 2) : 0;
 
-            $broadsheetData[] = [
-                'student' => [
-                    'id' => $student->id,
-                    'name' => $student->name,
-                    'admission_number' => $student->admission_number,
-                    'gender' => $student->gender,
-                    'fee_cleared' => $student->fee_cleared_status,
-                ],
-                'scores' => $subjectScores,
+            $studentName = $student->name ?? trim(($student->first_name ?? '') . ' ' . ($student->last_name ?? ''));
+
+            $studentsData[] = [
+                'id' => $student->id,
+                'name' => $studentName ?: 'Unknown Student',
+                'admission_number' => $student->admission_number ?? 'N/A',
+                'gender' => $student->gender ?? 'N/A',
+                'fee_cleared' => (bool) ($student->fee_cleared_status ?? true),
+                'results' => (object) $resultsMap,
                 'total_marks' => $totalMarks,
                 'average' => $average,
                 'subject_count' => $subjectCount,
             ];
         }
 
-        // Sort students by average descending to compute class positions
-        usort($broadsheetData, fn($a, $b) => $b['average'] <=> $a['average']);
+        // Sort students by average descending to compute class position
+        usort($studentsData, fn($a, $b) => $b['average'] <=> $a['average']);
 
         $rank = 1;
-        foreach ($broadsheetData as $idx => &$data) {
-            if ($idx > 0 && $data['average'] < $broadsheetData[$idx - 1]['average']) {
+        foreach ($studentsData as $idx => &$stData) {
+            if ($idx > 0 && $stData['average'] < $studentsData[$idx - 1]['average']) {
                 $rank = $idx + 1;
             }
-            $data['class_position'] = $rank;
-            $data['class_position_formatted'] = GradingService::ordinal($rank);
+            $stData['class_position'] = $rank;
+            $stData['class_position_formatted'] = GradingService::ordinal($rank);
         }
 
         return response()->json([
-            'school' => $settings,
-            'class' => $schoolClass,
+            'school' => $schoolSettings,
+            'class' => [
+                'id' => $schoolClass->id,
+                'name' => $schoolClass->name,
+                'arm' => $schoolClass->arm ?? '',
+                'full_name' => trim($schoolClass->name . ' ' . ($schoolClass->arm ?? '')),
+            ],
             'term' => $term,
             'session' => $session,
             'subjects' => $subjects,
-            'broadsheet' => $broadsheetData,
+            'students' => $studentsData,
         ], 200);
     }
 
     /**
-     * Generate Comprehensive Student Report Card with QR Verification Hash & Fee Gatekeeper Check
+     * Generate 1-Click Class Broadsheet (A4 Landscape Data Grid)
+     */
+    public function generateBroadsheet(Request $request, $classId = null)
+    {
+        return $this->getBroadsheet($request, $classId);
+    }
+
     /**
      * Generate Comprehensive Student Report Card with QR Verification Hash, QR Graphic & Fee Gatekeeper Check.
      */
     public function generateReportCard(Request $request, $studentId)
     {
-        $term = $request->query('term', '1st Term');
-        $session = $request->query('session', '2025/2026');
+        $activeTermObj = AcademicTerm::where('is_current', true)->first() ?? AcademicTerm::latest()->first();
+        $defaultTerm = $activeTermObj?->term ?? '1st Term';
+        $defaultSession = $activeTermObj?->session ?? '2025/2026';
+
+        $term = $request->query('term') ?: $defaultTerm;
+        $session = $request->query('session') ?: $defaultSession;
 
         $student = Student::with('class')->findOrFail($studentId);
         $settings = SchoolSetting::first();
@@ -128,9 +190,13 @@ class BroadsheetController extends Controller
             ], 403);
         }
 
-        // Fetch student's approved subject results for the report card
+        // Fetch student's approved subject results for the report card with term normalization
         $results = Result::where('student_id', $student->id)
-            ->where('term', $term)
+            ->where(function ($q) use ($term) {
+                $q->where('term', $term)
+                  ->orWhere('term', str_replace(['1st Term', '2nd Term', '3rd Term'], ['First Term', 'Second Term', 'Third Term'], $term))
+                  ->orWhere('term', str_replace(['First Term', 'Second Term', 'Third Term'], ['1st Term', '2nd Term', '3rd Term'], $term));
+            })
             ->where('academic_session', $session)
             ->where(function ($query) {
                 $query->where('approval_status', 'approved')
@@ -138,6 +204,17 @@ class BroadsheetController extends Controller
             })
             ->with('subject')
             ->get();
+
+        // Fallback: If no approved results match strict term/session, fetch any approved results for the student
+        if ($results->isEmpty()) {
+            $results = Result::where('student_id', $student->id)
+                ->where(function ($query) {
+                    $query->where('approval_status', 'approved')
+                          ->orWhere('status', 'approved');
+                })
+                ->with('subject')
+                ->get();
+        }
 
         $verificationHash = md5("EDUTRACK_{$student->id}_{$term}_{$session}_VERIFIED");
         $verificationUrl = url("/verify-result/{$verificationHash}");

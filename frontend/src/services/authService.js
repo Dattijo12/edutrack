@@ -1,13 +1,27 @@
 import api from './api';
 
 const authService = {
-  async login(email, password) {
-    const response = await api.post('/login', { email, password });
-    if (response.data.token) {
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
+  async login(loginId, password) {
+    const payload = { login_id: loginId, password };
+    console.log('Sending API login payload:', payload);
+
+    try {
+      const response = await api.post('/login', payload, {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Validation Errors from Backend:', error.response?.data?.errors || error.response?.data);
+      throw error;
     }
-    return response.data;
   },
 
   async logout() {

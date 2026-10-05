@@ -27,8 +27,10 @@ class StoreStudentRequest extends FormRequest
             'class_id' => 'required|exists:classes,id',
             'gender' => 'required|in:Male,Female',
             'dob' => 'required|date',
-            'parent_phone' => 'required|digits:11',
-            'guardian_phone' => 'nullable|digits:11',
+            'guardian_name' => 'nullable|string|max:255',
+            'guardian_phone' => 'required|digits:11',
+            'parent_phone' => 'nullable|digits:11',
+            'guardian_relationship' => 'nullable|string|max:100',
         ];
     }
 }

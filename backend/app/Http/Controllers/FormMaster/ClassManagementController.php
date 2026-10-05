@@ -60,18 +60,32 @@ class ClassManagementController extends Controller
      */
     public function getAttendance(Request $request)
     {
-        $validated = $request->validate([
-            'class_id' => 'required|exists:classes,id',
-            'date' => 'required|date',
-        ]);
+        $user = $request->user();
+        
+        $classId = $request->query('class_id');
+        $date = $request->query('date') ?: now()->toDateString();
 
-        $records = Attendance::where('class_id', $validated['class_id'])
-            ->where('date', $validated['date'])
+        if (!$classId && $user) {
+            $class = SchoolClass::where('form_master_id', $user->id)->first();
+            $classId = $class?->id;
+        }
+
+        if (!$classId) {
+            return response()->json([
+                'date' => $date,
+                'class_id' => null,
+                'attendance' => []
+            ], 200);
+        }
+
+        $records = Attendance::where('class_id', $classId)
+            ->where('date', $date)
+            ->with('student')
             ->get();
 
         return response()->json([
-            'date' => $validated['date'],
-            'class_id' => $validated['class_id'],
+            'date' => $date,
+            'class_id' => (int)$classId,
             'attendance' => $records
         ], 200);
     }
@@ -110,7 +124,7 @@ class ClassManagementController extends Controller
         }
 
         return response()->json([
-            'message' => "Attendance records successfully saved for {$savedCount} students.",
+            'message' => "Attendance records successfully saved for {$savedCount} students on {$validated['date']}.",
             'count' => $savedCount,
         ], 200);
     }

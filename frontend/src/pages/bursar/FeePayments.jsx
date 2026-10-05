@@ -1,408 +1,838 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { ArrowLeft, DollarSign, Lock, Unlock, History, CheckCircle2, AlertCircle, X, Search, Filter } from 'lucide-react';
+import { 
+  ArrowLeft, 
+  DollarSign, 
+  Receipt, 
+  Printer, 
+  CreditCard, 
+  Calendar, 
+  GraduationCap, 
+  User, 
+  CheckCircle2, 
+  Hash, 
+  Search, 
+  Sparkles,
+  X,
+  Layers,
+  Filter,
+  ShieldCheck,
+  School
+} from 'lucide-react';
 import bursarService from '../../services/bursarService';
-import classService from '../../services/classService';
+
+import { useSchool } from '../../context/SchoolContext';
 
 const FeePayments = () => {
+  const { school } = useSchool();
   const [students, setStudents] = useState([]);
-  const [classes, setClasses] = useState([]);
-  const [selectedClass, setSelectedClass] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [search, setSearch] = useState('');
+  const [allClasses, setAllClasses] = useState([]);
+  const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [loadingStudents, setLoadingStudents] = useState(false);
+  
+  // Cascading Dropdown: Form Class Selection (separate from filter)
+  const [formClassId, setFormClassId] = useState('');
 
-  // Payment Modal State
-  const [selectedStudent, setSelectedStudent] = useState(null);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [showAuditModal, setShowAuditModal] = useState(false);
-  const [amountDue, setAmountDue] = useState('150000');
-  const [amountPaid, setAmountPaid] = useState('');
-  const [submittingPayment, setSubmittingPayment] = useState(false);
+  // Comprehensive Filter State (Search, Class, Term, Session, Status)
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterClass, setFilterClass] = useState('ALL');
+  const [filterTerm, setFilterTerm] = useState('ALL');
+  const [filterSession, setFilterSession] = useState('ALL');
+  const [filterStatus, setFilterStatus] = useState('ALL');
+
+  // Receipt Modal State
+  const [activeReceipt, setActiveReceipt] = useState(null);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+
+  // Form State
+  const [formData, setFormData] = useState({
+    student_id: '',
+    amount_paid: '',
+    term: '1st Term',
+    academic_session: '2025/2026',
+    payment_method: 'Cash',
+    reference_number: ''
+  });
 
   useEffect(() => {
-    classService.getAll()
-      .then(res => setClasses(Array.isArray(res) ? res : (res?.data || [])))
-      .catch(console.error);
-  }, []);
+    if (school?.active_session) {
+      setFormData(prev => ({ ...prev, academic_session: school.active_session }));
+    }
+    if (school?.active_term) {
+      setFormData(prev => ({ ...prev, term: school.active_term }));
+    }
+    fetchClasses();
+    fetchPayments();
+  }, [school]);
 
+  /**
+   * Cascading: When formClassId changes, fetch students for that class only
+   */
   useEffect(() => {
-    fetchStudents();
-  }, [selectedClass, statusFilter, search]);
+    if (formClassId) {
+      fetchStudentsByClass(formClassId);
+    } else {
+      setStudents([]);
+      setFormData(prev => ({ ...prev, student_id: '' }));
+    }
+  }, [formClassId]);
 
-  const fetchStudents = async () => {
+  /**
+   * Fetch COMPLETE list of school classes from backend for dropdown filters and form
+   */
+  const fetchClasses = async () => {
+    try {
+      const res = await bursarService.getClasses();
+      const classList = Array.isArray(res) ? res : (res?.data || []);
+      setAllClasses(classList);
+    } catch (err) {
+      console.error('Failed to load classes for Bursar:', err);
+      toast.error('Could not load class list. Please contact admin.');
+    }
+  };
+
+  /**
+   * Fetch students filtered by a specific class ID (cascading dropdown)
+   */
+  const fetchStudentsByClass = async (classId) => {
+    setLoadingStudents(true);
+    setStudents([]);
+    setFormData(prev => ({ ...prev, student_id: '' }));
+    try {
+      const res = await bursarService.getStudentsByClass(classId);
+      const studentList = Array.isArray(res) ? res : (res?.data || []);
+      setStudents(studentList);
+    } catch (err) {
+      console.error('Failed to load students for class:', err);
+      toast.error('Could not load students for the selected class.');
+    } finally {
+      setLoadingStudents(false);
+    }
+  };
+
+  /**
+   * Fetch payment history records
+   */
+  const fetchPayments = async () => {
     setLoading(true);
     try {
-      const data = await bursarService.getStudents(selectedClass, statusFilter, search);
-      setStudents(Array.isArray(data) ? data : (data?.data || []));
+      const data = await bursarService.getPayments();
+      const paymentList = Array.isArray(data) ? data : (data?.data || []);
+      setPayments(paymentList);
     } catch (err) {
-      console.error(err);
-      toast.error('Failed to fetch fee payment records.');
+      console.error('Failed to fetch payments history:', err);
+      toast.error('Failed to load payment history.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleToggleClearance = async (student) => {
-    const newStatus = !student.fee_cleared_status;
-    try {
-      await bursarService.toggleClearance(student.id, newStatus);
-      toast.success(`Fee clearance for ${student.first_name || student.name} updated: ${newStatus ? 'CLEARED 🔓' : 'LOCKED 🔒'}`);
-      fetchStudents();
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to toggle fee clearance status.');
-    }
+  /**
+   * Handle form input changes
+   */
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleOpenPayment = (student) => {
-    setSelectedStudent(student);
-    const existingPayment = student.fee_payments && student.fee_payments[0];
-    if (existingPayment) {
-      setAmountDue(existingPayment.amount_due ? existingPayment.amount_due.toString() : '150000');
-      setAmountPaid(existingPayment.amount_paid ? existingPayment.amount_paid.toString() : '0');
-    } else {
-      setAmountDue('150000');
-      setAmountPaid('0');
-    }
-    setShowPaymentModal(true);
-  };
-
-  const handleRecordPayment = async (e) => {
+  /**
+   * Handle Payment Form Submission
+   */
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmittingPayment(true);
+    if (!formClassId) {
+      toast.warning('Please select a class first.');
+      return;
+    }
+    if (!formData.student_id) {
+      toast.warning('Please select a student.');
+      return;
+    }
+    if (!formData.amount_paid || parseFloat(formData.amount_paid) <= 0) {
+      toast.warning('Please enter a valid payment amount.');
+      return;
+    }
 
-    const dueNum = parseFloat(amountDue) || 0;
-    const paidNum = parseFloat(amountPaid) || 0;
-
+    setSubmitting(true);
     try {
-      await bursarService.recordPayment({
-        student_id: selectedStudent.id,
-        term_id: 1, // Current active term
-        amount_due: dueNum,
-        amount_paid: paidNum,
+      const res = await bursarService.createPayment({
+        student_id: parseInt(formData.student_id, 10),
+        amount_paid: parseFloat(formData.amount_paid),
+        term: formData.term,
+        academic_session: formData.academic_session,
+        payment_method: formData.payment_method,
+        reference_number: formData.reference_number || undefined
       });
 
-      const balance = Math.max(0, dueNum - paidNum);
-      const statusText = balance === 0 ? 'CLEARED' : (paidNum > 0 ? 'PARTIAL' : 'UNPAID');
+      const paymentRecord = res.data || res;
+      toast.success(`Payment of ₦${parseFloat(formData.amount_paid).toLocaleString()} recorded successfully!`);
 
-      toast.success(`Payment of ₦${paidNum.toLocaleString()} recorded for ${selectedStudent.first_name || selectedStudent.name}. Status: ${statusText}`);
-      setShowPaymentModal(false);
-      fetchStudents();
+      // Refresh payment list & clear form amount
+      fetchPayments();
+      setFormData(prev => ({
+        ...prev,
+        amount_paid: '',
+        reference_number: ''
+      }));
+
+      // Automatically open receipt view for the recorded payment
+      if (paymentRecord) {
+        setActiveReceipt(paymentRecord);
+        setShowReceiptModal(true);
+      }
     } catch (err) {
-      console.error(err);
+      console.error('Payment submission failed:', err);
       toast.error(err?.response?.data?.message || 'Failed to record payment.');
     } finally {
-      setSubmittingPayment(false);
+      setSubmitting(false);
     }
   };
 
-  const handleOpenAudit = (student) => {
-    setSelectedStudent(student);
-    setShowAuditModal(true);
+  /**
+   * Trigger Receipt Modal View
+   */
+  const handleViewReceipt = (payment) => {
+    setActiveReceipt(payment);
+    setShowReceiptModal(true);
   };
 
-  const getStatusBadge = (student) => {
-    const payment = student.fee_payments && student.fee_payments[0];
-    if (!payment) {
-      return (
-        <span style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '12px', fontWeight: '800', background: 'rgba(255, 75, 75, 0.15)', color: '#ff4b4b', textTransform: 'uppercase' }}>
-          Unpaid (₦0)
-        </span>
-      );
-    }
-
-    const due = parseFloat(payment.amount_due) || 150000;
-    const paid = parseFloat(payment.amount_paid) || 0;
-    const balance = Math.max(0, due - paid);
-
-    if (balance === 0 && paid > 0) {
-      return (
-        <span style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '12px', fontWeight: '800', background: 'rgba(0, 230, 118, 0.15)', color: '#00e676', textTransform: 'uppercase' }}>
-          Cleared (Paid ₦{paid.toLocaleString()})
-        </span>
-      );
-    } else if (paid > 0 && balance > 0) {
-      return (
-        <span style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '12px', fontWeight: '800', background: 'rgba(255, 180, 0, 0.15)', color: '#ffb400', textTransform: 'uppercase' }}>
-          Partial (Paid: ₦{paid.toLocaleString()} | Bal: ₦{balance.toLocaleString()})
-        </span>
-      );
-    } else {
-      return (
-        <span style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '12px', fontWeight: '800', background: 'rgba(255, 75, 75, 0.15)', color: '#ff4b4b', textTransform: 'uppercase' }}>
-          Unpaid (Bal: ₦{due.toLocaleString()})
-        </span>
-      );
-    }
+  /**
+   * Trigger Browser Print for Receipt
+   */
+  const handlePrint = () => {
+    window.print();
   };
 
-  const calculatedBalance = Math.max(0, (parseFloat(amountDue) || 0) - (parseFloat(amountPaid) || 0));
+  /**
+   * Dynamically build dropdown class options (combining complete backend classes & any extra in payments)
+   */
+  const displayClasses = React.useMemo(() => {
+    const map = new Map();
+
+    // 1. Add complete backend classes
+    allClasses.forEach(c => {
+      const label = c.arm ? `${c.name} (${c.arm})` : c.name;
+      map.set(label, label);
+    });
+
+    // 2. Backup check for classes present in payments payload
+    payments.forEach(p => {
+      const cls = p.student?.class;
+      if (cls) {
+        const label = cls.arm ? `${cls.name} (${cls.arm})` : cls.name;
+        if (!map.has(label)) {
+          map.set(label, label);
+        }
+      }
+    });
+
+    return Array.from(map.values()).sort();
+  }, [allClasses, payments]);
+
+  /**
+   * Combined Filter Logic: Search Input + Class + Term + Session + Status
+   */
+  const filteredPayments = payments.filter(p => {
+    // 1. Search Filter (Student Name, Admission No, Reference No)
+    if (searchTerm.trim()) {
+      const termLower = searchTerm.toLowerCase();
+      const studentName = p.student ? `${p.student.first_name || ''} ${p.student.last_name || ''} ${p.student.name || ''}`.toLowerCase() : '';
+      const admNo = p.student?.admission_number ? p.student.admission_number.toLowerCase() : '';
+      const refNo = p.reference_number ? p.reference_number.toLowerCase() : '';
+      const matchesSearch = studentName.includes(termLower) || admNo.includes(termLower) || refNo.includes(termLower);
+      if (!matchesSearch) return false;
+    }
+
+    // 2. Class Filter
+    if (filterClass !== 'ALL') {
+      const cls = p.student?.class;
+      const clsName = cls ? (cls.arm ? `${cls.name} (${cls.arm})` : cls.name) : '';
+      if (clsName.toLowerCase() !== filterClass.toLowerCase()) return false;
+    }
+
+    // 3. Term Filter
+    if (filterTerm !== 'ALL' && p.term !== filterTerm) {
+      return false;
+    }
+
+    // 4. Session Filter
+    if (filterSession !== 'ALL' && p.academic_session !== filterSession) {
+      return false;
+    }
+
+    // 5. Status Filter
+    if (filterStatus !== 'ALL') {
+      const statusVal = (p.status || 'completed').toLowerCase();
+      if (statusVal !== filterStatus.toLowerCase()) return false;
+    }
+
+    return true;
+  });
+
+  const schoolInfo = school || {
+    name: 'EduTrack Academy',
+    address: '12 Educational Blvd, Victoria Island, Lagos',
+    phone: '+234 801 234 5678',
+    logo_url: ''
+  };
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto' }} className="animate-fade-in">
-      <div className="glass-panel" style={{ padding: '36px' }}>
+    <div className="min-h-screen text-slate-900 dark:text-slate-100">
+      
+      {/* ========================================================================= */}
+      {/* MAIN BURSAR DASHBOARD VIEW (Hidden when printing receipt) */}
+      {/* ========================================================================= */}
+      <div className="print:hidden p-6 md:p-10 max-w-7xl mx-auto space-y-10 animate-fade-in">
         
-        {/* Header */}
-        <div style={{ marginBottom: '28px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '20px' }}>
-          <Link to="/dashboard" className="back-link">
-            <ArrowLeft size={16} /> Back to Dashboard
-          </Link>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginTop: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-              <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'rgba(0, 242, 254, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <DollarSign size={22} color="#00f2fe" />
+        {/* Navigation & Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8 border-b border-slate-300 dark:border-slate-700/80">
+          <div>
+            <Link to="/dashboard" className="inline-flex items-center gap-2 text-sm font-bold text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 dark:hover:text-cyan-300 transition-colors mb-3">
+              <ArrowLeft size={18} /> Back to Dashboard
+            </Link>
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-600 dark:text-cyan-400 shadow-inner">
+                <DollarSign size={32} />
               </div>
               <div>
-                <h2 style={{ fontSize: '26px', fontWeight: '800' }}>Hybrid Bursar Fee Collection & Gatekeeper</h2>
-                <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '14px', marginTop: '2px' }}>
-                  Input student tuition payments, auto-calculate balances, assign Cleared/Partial/Unpaid badges, and enforce report card fee clearance locks.
+                <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">Fee Management & Payments</h1>
+                <p className="text-base text-slate-600 dark:text-slate-300 mt-1">
+                  Record student tuition transactions, update fee clearance, and generate official receipts.
                 </p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Filter Toolbar */}
-        <div style={{ display: 'flex', gap: '15px', marginBottom: '24px', flexWrap: 'wrap' }}>
-          <div style={{ position: 'relative', flex: 1, maxWidth: '340px' }}>
-            <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-secondary))' }} />
-            <input 
-              type="text" 
-              placeholder="Search student or admission #..." 
-              className="glass-input" 
-              style={{ paddingLeft: '38px' }}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+        {/* 1. Payment Recording Form Card */}
+        <div className="glass-panel p-8 md:p-10 rounded-3xl border border-slate-300 dark:border-slate-700/80 bg-white dark:bg-slate-900/80 shadow-2xl backdrop-blur-md space-y-6">
+          <div className="flex items-center gap-3 pb-5 border-b border-slate-200 dark:border-slate-700/80">
+            <Receipt className="text-cyan-600 dark:text-cyan-400" size={26} />
+            <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">Record Student Fee Payment</h2>
           </div>
 
-          <div style={{ position: 'relative', minWidth: '200px' }}>
-            <select className="glass-input" value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)}>
-              <option value="" style={{ color: '#000' }}>All Classes</option>
-              {classes.map(c => (
-                <option key={c.id} value={c.id} style={{ color: '#000' }}>{c.name} {c.arm}</option>
-              ))}
-            </select>
-          </div>
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-12 gap-6">
+            
+            {/* Cascading: Select Class First */}
+            <div className="md:col-span-6">
+              <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 mb-2.5 flex items-center gap-2">
+                <School size={16} className="text-cyan-600 dark:text-cyan-400" /> Select Class <span className="text-rose-500 dark:text-rose-400">*</span>
+              </label>
+              <select
+                value={formClassId}
+                onChange={(e) => setFormClassId(e.target.value)}
+                required
+                className="w-full px-4 py-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100 text-base font-medium focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-400 focus:ring-1 focus:ring-cyan-500 dark:focus:ring-cyan-400 transition-all cursor-pointer"
+              >
+                <option value="">-- Choose Class --</option>
+                {allClasses.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.arm ? `${c.name} (${c.arm})` : c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <div style={{ position: 'relative', minWidth: '200px' }}>
-            <select className="glass-input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-              <option value="all" style={{ color: '#000' }}>All Clearance Statuses</option>
-              <option value="cleared" style={{ color: '#000' }}>Cleared (Paid)</option>
-              <option value="owing" style={{ color: '#000' }}>Owing (Report Card Locked)</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Student Fee Table */}
-        {loading ? (
-          <div className="page-loading">
-            <span className="spinner"></span>
-            <p>Loading student fee collection directory...</p>
-          </div>
-        ) : students.length === 0 ? (
-          <div className="empty-state">
-            <DollarSign size={44} style={{ opacity: 0.3, marginBottom: '8px' }} />
-            <p>No student fee records found matching filter criteria.</p>
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border-dark)' }}>
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Admission #</th>
-                  <th>Student Name</th>
-                  <th>Class Arm</th>
-                  <th>Payment Status</th>
-                  <th>Report Card Gatekeeper</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+            {/* Cascading: Select Student (Enabled ONLY after class is chosen) */}
+            <div className="md:col-span-6">
+              <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 mb-2.5 flex items-center gap-2">
+                <User size={16} className="text-cyan-600 dark:text-cyan-400" /> Select Student <span className="text-rose-500 dark:text-rose-400">*</span>
+                {!formClassId && (
+                  <span className="text-xs font-normal text-slate-400 dark:text-slate-500 ml-1">(Select a class first)</span>
+                )}
+              </label>
+              <select
+                name="student_id"
+                value={formData.student_id}
+                onChange={handleChange}
+                required
+                disabled={!formClassId || loadingStudents}
+                className="w-full px-4 py-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100 text-base font-medium focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-400 focus:ring-1 focus:ring-cyan-500 dark:focus:ring-cyan-400 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <option value="">
+                  {loadingStudents 
+                    ? '⏳ Loading students...' 
+                    : !formClassId 
+                      ? '-- Select a class first --' 
+                      : students.length === 0 
+                        ? '-- No students in this class --' 
+                        : '-- Choose Student --'
+                  }
+                </option>
                 {students.map(s => {
-                  const isCleared = s.fee_cleared_status;
+                  const sName = s.first_name ? `${s.first_name} ${s.last_name}` : s.name;
                   return (
-                    <tr key={s.id}>
-                      <td style={{ fontWeight: '700', color: '#7b93ff' }}>{s.admission_number}</td>
-                      <td style={{ fontWeight: '700' }}>{s.first_name ? `${s.first_name} ${s.last_name}` : s.name}</td>
-                      <td>{s.class ? `${s.class.name} ${s.class.arm || ''}` : 'N/A'}</td>
-                      <td>{getStatusBadge(s)}</td>
-                      <td>
-                        <button 
-                          onClick={() => handleToggleClearance(s)} 
-                          style={{ 
-                            padding: '6px 12px', 
-                            borderRadius: '8px', 
-                            border: 'none', 
-                            cursor: 'pointer', 
-                            fontWeight: '700', 
-                            fontSize: '12px', 
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            background: isCleared ? 'rgba(0, 230, 118, 0.15)' : 'rgba(255, 75, 75, 0.15)', 
-                            color: isCleared ? '#00e676' : '#ff4b4b' 
-                          }}
-                        >
-                          {isCleared ? <><Unlock size={14} /> Cleared (Unlocked)</> : <><Lock size={14} /> Owing (Locked)</>}
-                        </button>
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                          <button onClick={() => handleOpenPayment(s)} className="btn-primary" style={{ padding: '6px 12px', fontSize: '12px' }}>
-                            <DollarSign size={14} /> Record Payment
-                          </button>
-                          <button onClick={() => handleOpenAudit(s)} className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>
-                            <History size={14} /> Audit Log
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                    <option key={s.id} value={s.id}>
+                      {sName} ({s.admission_number})
+                    </option>
                   );
                 })}
-              </tbody>
-            </table>
+              </select>
+            </div>
+
+            {/* Amount Paid */}
+            <div className="md:col-span-6">
+              <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 mb-2.5 flex items-center gap-2">
+                <DollarSign size={16} className="text-cyan-600 dark:text-cyan-400" /> Amount Paid (₦) <span className="text-rose-500 dark:text-rose-400">*</span>
+              </label>
+              <input
+                type="number"
+                name="amount_paid"
+                value={formData.amount_paid}
+                onChange={handleChange}
+                placeholder="e.g. 150000"
+                min="1"
+                step="0.01"
+                required
+                className="w-full px-4 py-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100 text-base font-semibold focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-400 focus:ring-1 focus:ring-cyan-500 dark:focus:ring-cyan-400 transition-all"
+              />
+            </div>
+
+            {/* Academic Term */}
+            <div className="md:col-span-6">
+              <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 mb-2.5 flex items-center gap-2">
+                <Calendar size={16} className="text-cyan-600 dark:text-cyan-400" /> Academic Term <span className="text-rose-500 dark:text-rose-400">*</span>
+              </label>
+              <select
+                name="term"
+                value={formData.term}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100 text-base font-medium focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-400 focus:ring-1 focus:ring-cyan-500 dark:focus:ring-cyan-400 transition-all cursor-pointer"
+              >
+                <option value="1st Term">1st Term</option>
+                <option value="2nd Term">2nd Term</option>
+                <option value="3rd Term">3rd Term</option>
+              </select>
+            </div>
+
+            {/* Academic Session */}
+            <div className="md:col-span-4">
+              <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 mb-2.5 flex items-center gap-2">
+                <GraduationCap size={16} className="text-cyan-600 dark:text-cyan-400" /> Academic Session <span className="text-rose-500 dark:text-rose-400">*</span>
+              </label>
+              <select
+                name="academic_session"
+                value={formData.academic_session}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100 text-base font-medium focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-400 focus:ring-1 focus:ring-cyan-500 dark:focus:ring-cyan-400 transition-all cursor-pointer"
+              >
+                <option value="2024/2025">2024/2025</option>
+                <option value="2025/2026">2025/2026</option>
+                <option value="2026/2027">2026/2027</option>
+              </select>
+            </div>
+
+            {/* Payment Method */}
+            <div className="md:col-span-4">
+              <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 mb-2.5 flex items-center gap-2">
+                <CreditCard size={16} className="text-cyan-600 dark:text-cyan-400" /> Payment Method <span className="text-rose-500 dark:text-rose-400">*</span>
+              </label>
+              <select
+                name="payment_method"
+                value={formData.payment_method}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100 text-base font-medium focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-400 focus:ring-1 focus:ring-cyan-500 dark:focus:ring-cyan-400 transition-all cursor-pointer"
+              >
+                <option value="Cash">Cash</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+                <option value="POS">POS</option>
+              </select>
+            </div>
+
+            {/* Reference Number (Optional) */}
+            <div className="md:col-span-4">
+              <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 mb-2.5 flex items-center gap-2">
+                <Hash size={16} className="text-cyan-600 dark:text-cyan-400" /> Reference / Teller No. <span className="text-slate-500 dark:text-slate-400 font-normal text-xs">(Optional)</span>
+              </label>
+              <input
+                type="text"
+                name="reference_number"
+                value={formData.reference_number}
+                onChange={handleChange}
+                placeholder="e.g. TR-982347102"
+                className="w-full px-4 py-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100 text-base font-mono focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-400 focus:ring-1 focus:ring-cyan-500 dark:focus:ring-cyan-400 transition-all"
+              />
+            </div>
+
+            {/* Submit Button */}
+            <div className="md:col-span-12 flex items-end justify-end">
+              <button
+                type="submit"
+                disabled={submitting || !formClassId || !formData.student_id}
+                className="py-3.5 px-8 rounded-xl bg-cyan-600 hover:bg-cyan-500 dark:bg-cyan-500 dark:hover:bg-cyan-400 disabled:opacity-50 disabled:cursor-not-allowed text-white dark:text-slate-950 font-extrabold text-base flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-cyan-500/20 active:scale-95 cursor-pointer"
+              >
+                {submitting ? (
+                  <><span className="spinner spinner-sm"></span> Processing...</>
+                ) : (
+                  <><DollarSign size={20} /> Record Payment & Print Receipt</>
+                )}
+              </button>
+            </div>
+
+          </form>
+        </div>
+
+        {/* 2. Payment History Table Section */}
+        <div className="glass-panel p-8 md:p-10 rounded-3xl border border-slate-300 dark:border-slate-700/80 bg-white dark:bg-slate-900/80 shadow-2xl backdrop-blur-md space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-slate-200 dark:border-slate-700/80">
+            <div>
+              <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Sparkles className="text-cyan-600 dark:text-cyan-400" size={24} /> Payment History & Audit Directory
+              </h2>
+              <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
+                Showing all recorded student tuition and fee transactions.
+              </p>
+            </div>
+
+            <div className="text-right">
+              <span className="inline-block px-4 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-cyan-700 dark:text-cyan-400 text-sm font-extrabold">
+                Total Shown: {filteredPayments.length} Record(s)
+              </span>
+            </div>
           </div>
-        )}
+
+          {/* Filter Toolbar (Search + Class + Term + Session + Status) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-4 bg-slate-50 dark:bg-slate-950/60 p-5 rounded-2xl border border-slate-200 dark:border-slate-700/80">
+            
+            {/* Search Input */}
+            <div className="md:col-span-4">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                <Search size={14} className="text-cyan-600 dark:text-cyan-400" /> Search Student / Ref
+              </label>
+              <div className="relative">
+                <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Name, Adm #, or Ref #..."
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white dark:bg-slate-800/90 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-400 transition-all font-medium"
+                />
+              </div>
+            </div>
+
+            {/* Class Filter Dropdown (Complete Backend List) */}
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                <Layers size={14} className="text-cyan-600 dark:text-cyan-400" /> Class
+              </label>
+              <select
+                value={filterClass}
+                onChange={(e) => setFilterClass(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-800/90 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-400 transition-all cursor-pointer font-medium"
+              >
+                <option value="ALL">All Classes</option>
+                {displayClasses.map(clsName => (
+                  <option key={clsName} value={clsName}>{clsName}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Term Filter Dropdown */}
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                <Calendar size={14} className="text-cyan-600 dark:text-cyan-400" /> Term
+              </label>
+              <select
+                value={filterTerm}
+                onChange={(e) => setFilterTerm(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-800/90 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-400 transition-all cursor-pointer font-medium"
+              >
+                <option value="ALL">All Terms</option>
+                <option value="1st Term">1st Term</option>
+                <option value="2nd Term">2nd Term</option>
+                <option value="3rd Term">3rd Term</option>
+              </select>
+            </div>
+
+            {/* Session Filter Dropdown */}
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                <GraduationCap size={14} className="text-cyan-600 dark:text-cyan-400" /> Session
+              </label>
+              <select
+                value={filterSession}
+                onChange={(e) => setFilterSession(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-800/90 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-400 transition-all cursor-pointer font-medium"
+              >
+                <option value="ALL">All Sessions</option>
+                <option value="2024/2025">2024/2025</option>
+                <option value="2025/2026">2025/2026</option>
+                <option value="2026/2027">2026/2027</option>
+              </select>
+            </div>
+
+            {/* Status Filter Dropdown */}
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                <Filter size={14} className="text-cyan-600 dark:text-cyan-400" /> Status
+              </label>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-800/90 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-400 transition-all cursor-pointer font-medium"
+              >
+                <option value="ALL">All Statuses</option>
+                <option value="completed">Completed</option>
+                <option value="pending">Pending</option>
+              </select>
+            </div>
+
+          </div>
+
+          {/* Table Area */}
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20 text-slate-500 dark:text-slate-400">
+              <span className="spinner w-10 h-10 border-4 border-cyan-500 dark:border-cyan-400 border-t-transparent rounded-full animate-spin mb-4"></span>
+              <p className="text-sm font-semibold">Fetching payment history records...</p>
+            </div>
+          ) : filteredPayments.length === 0 ? (
+            <div className="p-16 text-center text-slate-600 dark:text-slate-300 rounded-2xl border border-slate-200 dark:border-slate-700/80 bg-slate-50 dark:bg-slate-950/40">
+              <Receipt size={48} className="mx-auto text-slate-400 dark:text-slate-500 mb-3" />
+              <p className="text-base font-bold text-slate-800 dark:text-slate-200">No payment records match filter criteria</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Try adjusting the search query or class/term dropdown filters above.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-700/80 shadow-lg">
+              <table className="w-full text-left border-collapse text-sm md:text-base">
+                <thead>
+                  <tr className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-b border-slate-300 dark:border-slate-700 font-extrabold uppercase tracking-wider text-xs">
+                    <th className="py-4 px-5">Date</th>
+                    <th className="py-4 px-5">Ref Number</th>
+                    <th className="py-4 px-5">Student Name</th>
+                    <th className="py-4 px-5">Class</th>
+                    <th className="py-4 px-5">Term & Session</th>
+                    <th className="py-4 px-5 text-right">Amount Paid</th>
+                    <th className="py-4 px-5 text-center">Method</th>
+                    <th className="py-4 px-5 text-center">Status</th>
+                    <th className="py-4 px-5 text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-700/60 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900/40">
+                  {filteredPayments.map(payment => {
+                    const student = payment.student || {};
+                    const sName = student.first_name ? `${student.first_name} ${student.last_name}` : (student.name || 'N/A');
+                    const cls = student.class;
+                    const cName = cls ? (cls.arm ? `${cls.name} (${cls.arm})` : cls.name) : 'N/A';
+                    const dateStr = payment.created_at ? new Date(payment.created_at).toLocaleDateString() : 'N/A';
+
+                    return (
+                      <tr key={payment.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors">
+                        <td className="py-4 px-5 text-slate-600 dark:text-slate-300 whitespace-nowrap font-medium">{dateStr}</td>
+                        <td className="py-4 px-5 font-mono font-bold text-cyan-700 dark:text-cyan-300">{payment.reference_number}</td>
+                        <td className="py-4 px-5">
+                          <strong className="block text-slate-900 dark:text-white font-bold text-base">{sName}</strong>
+                          <span className="text-xs text-slate-500 dark:text-slate-400 font-mono font-semibold">{student.admission_number || 'No Adm No'}</span>
+                        </td>
+                        <td className="py-4 px-5 font-bold text-slate-800 dark:text-slate-200">
+                          <span className="inline-block px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs">
+                            {cName}
+                          </span>
+                        </td>
+                        <td className="py-4 px-5 font-semibold text-slate-800 dark:text-slate-200">
+                          {payment.term} <span className="text-slate-500 dark:text-slate-400 text-xs font-normal">({payment.academic_session})</span>
+                        </td>
+                        <td className="py-4 px-5 text-right font-extrabold text-emerald-600 dark:text-emerald-400 text-base">
+                          ₦{parseFloat(payment.amount_paid || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-4 px-5 text-center">
+                          <span className="inline-block px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs">
+                            {payment.payment_method}
+                          </span>
+                        </td>
+                        <td className="py-4 px-5 text-center">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-300 dark:border-emerald-500/40 text-emerald-700 dark:text-emerald-300 font-extrabold text-xs uppercase">
+                            <CheckCircle2 size={14} /> {payment.status || 'Completed'}
+                          </span>
+                        </td>
+                        <td className="py-4 px-5 text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleViewReceipt(payment)}
+                            className="px-3.5 py-2 rounded-xl bg-cyan-100 dark:bg-cyan-500/15 hover:bg-cyan-200 dark:hover:bg-cyan-500/30 text-cyan-700 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-500/40 font-bold text-xs inline-flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
+                          >
+                            <Printer size={15} /> Receipt
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
 
       </div>
 
-      {/* Record Payment Modal */}
-      {showPaymentModal && selectedStudent && (
-        <div className="modal-overlay">
-          <div className="glass-panel modal-content animate-slide-up" style={{ maxWidth: '480px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '12px' }}>
-              <h3 style={{ fontSize: '20px', fontWeight: '800' }}>
-                Record Fee Payment
-              </h3>
-              <button onClick={() => setShowPaymentModal(false)} style={{ background: 'none', border: 'none', color: 'hsl(var(--text-secondary))', cursor: 'pointer' }}>
-                <X size={20} />
-              </button>
-            </div>
-
-            <form onSubmit={handleRecordPayment} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div>
-                <p style={{ fontSize: '14px', fontWeight: '700', margin: 0 }}>
-                  {selectedStudent.first_name ? `${selectedStudent.first_name} ${selectedStudent.last_name}` : selectedStudent.name}
-                </p>
-                <p style={{ fontSize: '12px', color: 'hsl(var(--text-secondary))', marginTop: '2px' }}>
-                  Admission No: {selectedStudent.admission_number}
-                </p>
-              </div>
-
-              <div>
-                <label className="form-label" style={{ marginBottom: '6px', display: 'block' }}>
-                  Predefined Termly Fee / Total Due (₦)
-                </label>
-                <input 
-                  type="number" 
-                  className="glass-input" 
-                  value={amountDue} 
-                  onChange={(e) => setAmountDue(e.target.value)} 
-                  required 
-                />
-              </div>
-
-              <div>
-                <label className="form-label" style={{ marginBottom: '6px', display: 'block' }}>
-                  Amount Paid by Student (₦) *
-                </label>
-                <input 
-                  type="number" 
-                  className="glass-input" 
-                  value={amountPaid} 
-                  onChange={(e) => setAmountPaid(e.target.value)} 
-                  placeholder="e.g. 150000" 
-                  required 
-                />
-              </div>
-
-              {/* Auto-Calculated Balance & Badge Display */}
-              <div style={{ padding: '14px', borderRadius: '10px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-dark)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <span style={{ fontSize: '12px', color: 'hsl(var(--text-secondary))' }}>Auto-Calculated Balance:</span>
-                  <div style={{ fontSize: '18px', fontWeight: '800', color: calculatedBalance === 0 ? '#00e676' : '#ffb400' }}>
-                    ₦{calculatedBalance.toLocaleString()}
-                  </div>
-                </div>
-                <div>
-                  {calculatedBalance === 0 ? (
-                    <span style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '12px', fontWeight: '800', background: 'rgba(0, 230, 118, 0.2)', color: '#00e676' }}>
-                      CLEARED
-                    </span>
-                  ) : parseFloat(amountPaid) > 0 ? (
-                    <span style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '12px', fontWeight: '800', background: 'rgba(255, 180, 0, 0.2)', color: '#ffb400' }}>
-                      PARTIAL
-                    </span>
-                  ) : (
-                    <span style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '12px', fontWeight: '800', background: 'rgba(255, 75, 75, 0.2)', color: '#ff4b4b' }}>
-                      UNPAID
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '8px' }}>
-                <button type="button" onClick={() => setShowPaymentModal(false)} className="btn-cancel">
-                  Cancel
+      {/* ========================================================================= */}
+      {/* 3. ENTERPRISE RECEIPT MODAL & PRINTABLE VIEW */}
+      {/* Uses Tailwind print:block so window.print() only prints the receipt */}
+      {/* ========================================================================= */}
+      {showReceiptModal && activeReceipt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto print:p-0 print:bg-white print:static print:inset-auto">
+          
+          <div className="bg-white text-slate-900 w-full max-w-xl rounded-3xl p-8 md:p-10 shadow-2xl border border-slate-300 print:shadow-none print:border-none print:p-6 print:w-full print:max-w-none print:rounded-none">
+            
+            {/* Modal Header Controls (Hidden on Print) */}
+            <div className="flex items-center justify-between pb-5 mb-6 border-b border-slate-200 print:hidden">
+              <span className="text-sm font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+                <ShieldCheck size={18} className="text-emerald-600" /> Printable Payment Receipt
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handlePrint}
+                  className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs flex items-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer"
+                >
+                  <Printer size={16} /> Print Receipt
                 </button>
-                <button type="submit" className="btn-primary" disabled={submittingPayment}>
-                  {submittingPayment ? (
-                    <><span className="spinner spinner-sm"></span> Saving...</>
-                  ) : (
-                    <><DollarSign size={16} /> Save Payment & Update Clearance</>
-                  )}
+                <button
+                  type="button"
+                  onClick={() => setShowReceiptModal(false)}
+                  className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all cursor-pointer"
+                >
+                  <X size={20} />
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Audit Log Modal */}
-      {showAuditModal && selectedStudent && (
-        <div className="modal-overlay">
-          <div className="glass-panel modal-content animate-slide-up" style={{ maxWidth: '540px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '12px' }}>
-              <h3 style={{ fontSize: '20px', fontWeight: '800' }}>
-                Financial Audit History
-              </h3>
-              <button onClick={() => setShowAuditModal(false)} style={{ background: 'none', border: 'none', color: 'hsl(var(--text-secondary))', cursor: 'pointer' }}>
-                <X size={20} />
-              </button>
             </div>
 
-            <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', marginBottom: '16px' }}>
-              Financial trail for <strong>{selectedStudent.first_name ? `${selectedStudent.first_name} ${selectedStudent.last_name}` : selectedStudent.name}</strong> ({selectedStudent.admission_number})
-            </p>
-
-            {selectedStudent.fee_payments && selectedStudent.fee_payments[0]?.audit_trail ? (
-              <div style={{ maxHeight: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {JSON.parse(selectedStudent.fee_payments[0].audit_trail).map((log, idx) => (
-                  <div key={idx} style={{ padding: '12px', borderRadius: '8px', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-dark)', fontSize: '13px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span style={{ fontWeight: '700', color: '#7b93ff' }}>Paid: ₦{Number(log.amount_paid).toLocaleString()}</span>
-                      <span style={{ fontSize: '11px', color: 'hsl(var(--text-secondary))' }}>{log.date}</span>
-                    </div>
-                    <p style={{ fontSize: '12px', color: 'hsl(var(--text-secondary))' }}>Recorded by: {log.recorded_by || 'Bursar'}</p>
-                    <p style={{ fontSize: '11px', color: log.status === 'paid' || log.status === 'cleared' ? '#00e676' : '#ffb400', marginTop: '2px', textTransform: 'uppercase', fontWeight: '700' }}>
-                      Status: {log.status}
+            {/* Printable Receipt Body */}
+            <div className="receipt-content space-y-6">
+              
+              {/* Receipt Header: School Logo & Info */}
+              <div className="flex items-center justify-between border-b-2 border-slate-900 pb-5 gap-4">
+                <div className="flex items-center gap-3.5">
+                  {schoolInfo.logo_url && (
+                    <img src={schoolInfo.logo_url} alt={schoolInfo.name} className="h-16 object-contain" />
+                  )}
+                  <div>
+                    <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">
+                      {schoolInfo.name || 'EduTrack Academy'}
+                    </h2>
+                    <p className="text-xs text-slate-700 font-medium">
+                      {schoolInfo.address}
+                    </p>
+                    <p className="text-xs text-slate-600">
+                      {schoolInfo.phone ? `Tel: ${schoolInfo.phone}` : ''}
                     </p>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p style={{ color: 'hsl(var(--text-secondary))', padding: '20px 0', textAlign: 'center' }}>No payment audit trail records exist yet.</p>
-            )}
+                </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
-              <button type="button" onClick={() => setShowAuditModal(false)} className="btn-cancel">
-                Close Audit Log
-              </button>
+                <div className="text-right">
+                  <span className="inline-block px-3 py-1 rounded-full bg-slate-900 text-white text-xs font-extrabold uppercase tracking-wider mb-1">
+                    Official Fee Receipt
+                  </span>
+                  <p className="text-xs font-mono font-bold text-slate-800">
+                    Ref: {activeReceipt.reference_number}
+                  </p>
+                  <p className="text-xs text-slate-600">
+                    Date: {activeReceipt.created_at ? new Date(activeReceipt.created_at).toLocaleDateString() : new Date().toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+
+              {/* Student & Payment Summary Grid */}
+              <div className="grid grid-cols-2 gap-4 bg-slate-50 p-5 rounded-2xl border border-slate-200 text-sm">
+                <div>
+                  <span className="block text-xs uppercase text-slate-500 font-bold mb-0.5">Student Name</span>
+                  <strong className="text-slate-900 font-bold text-base">
+                    {activeReceipt.student?.first_name ? `${activeReceipt.student.first_name} ${activeReceipt.student.last_name}` : (activeReceipt.student?.name || 'N/A')}
+                  </strong>
+                </div>
+                <div>
+                  <span className="block text-xs uppercase text-slate-500 font-bold mb-0.5">Admission Number</span>
+                  <strong className="text-slate-800 font-mono text-base">
+                    {activeReceipt.student?.admission_number || 'N/A'}
+                  </strong>
+                </div>
+                <div>
+                  <span className="block text-xs uppercase text-slate-500 font-bold mb-0.5">Class Arm</span>
+                  <strong className="text-slate-800 font-semibold">
+                    {activeReceipt.student?.class ? `${activeReceipt.student.class.name} ${activeReceipt.student.class.arm || ''}` : 'N/A'}
+                  </strong>
+                </div>
+                <div>
+                  <span className="block text-xs uppercase text-slate-500 font-bold mb-0.5">Payment Method</span>
+                  <strong className="text-slate-800 uppercase font-semibold">
+                    {activeReceipt.payment_method}
+                  </strong>
+                </div>
+                <div>
+                  <span className="block text-xs uppercase text-slate-500 font-bold mb-0.5">Academic Term</span>
+                  <strong className="text-slate-800 font-semibold">{activeReceipt.term}</strong>
+                </div>
+                <div>
+                  <span className="block text-xs uppercase text-slate-500 font-bold mb-0.5">Academic Session</span>
+                  <strong className="text-slate-800 font-semibold">{activeReceipt.academic_session}</strong>
+                </div>
+              </div>
+
+              {/* Amount Paid Box */}
+              <div className="bg-emerald-50 border-2 border-emerald-500/40 rounded-2xl p-6 flex items-center justify-between text-slate-900 shadow-sm">
+                <div>
+                  <span className="block text-xs uppercase font-extrabold text-emerald-900 tracking-wider mb-1">
+                    Total Amount Paid
+                  </span>
+                  <span className="text-3xl font-black text-emerald-950">
+                    ₦{parseFloat(activeReceipt.amount_paid || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-600 text-white font-extrabold text-xs uppercase tracking-wider">
+                    <CheckCircle2 size={15} /> {activeReceipt.status || 'CLEARED'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Signatures & Security Verification Seal */}
+              <div className="pt-4 grid grid-cols-12 gap-4 items-end text-xs">
+                
+                {/* QR Code Verification */}
+                <div className="col-span-4 flex flex-col items-center justify-center p-3 bg-slate-50 border border-slate-200 rounded-xl text-center">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=Verify-Payment-${activeReceipt.reference_number}-${activeReceipt.student?.admission_number}`}
+                    alt="Receipt Verification QR"
+                    className="w-18 h-18 object-contain"
+                  />
+                  <span className="text-[9px] font-mono font-bold text-slate-600 uppercase mt-1.5">
+                    Scan to Verify Receipt
+                  </span>
+                </div>
+
+                {/* Authorized Signatures */}
+                <div className="col-span-8 grid grid-cols-2 gap-4 text-center">
+                  <div>
+                    <div className="border-b border-slate-900 h-12 mb-1 flex items-end justify-center pb-1">
+                      <span className="font-serif italic text-slate-500 text-xs">Bursar Sign</span>
+                    </div>
+                    <span className="font-bold text-slate-800 text-xs">Bursar / Cashier Signature</span>
+                  </div>
+                  <div>
+                    <div className="border-b border-slate-900 h-12 mb-1 flex items-end justify-center pb-1">
+                      <span className="font-serif italic text-slate-500 text-xs">Official Stamp</span>
+                    </div>
+                    <span className="font-bold text-slate-800 text-xs">School Stamp</span>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Footer Note */}
+              <div className="pt-3 text-center text-xs text-slate-500 border-t border-slate-200 italic">
+                This is an official computer-generated fee receipt issued by {schoolInfo.name || 'EduTrack Academy'}. Valid without erasure.
+              </div>
+
             </div>
+
           </div>
+
         </div>
       )}
 

@@ -24,8 +24,8 @@ const ClassAttendance = () => {
   }, []);
 
   useEffect(() => {
-    if (assignedClass && assignedClass.id && date) {
-      fetchExistingAttendance(assignedClass.id, date);
+    if (assignedClass && assignedClass.id && date && students.length > 0) {
+      fetchExistingAttendance(assignedClass.id, date, students);
     }
   }, [date, assignedClass]);
 
@@ -55,18 +55,8 @@ const ClassAttendance = () => {
 
       setStudents(list);
 
-      // Initialize default attendance register state to 'present' for all class students
-      const initialAttendance = {};
-      const initialRemarks = {};
-      list.forEach(s => {
-        initialAttendance[s.id] = 'present';
-        initialRemarks[s.id] = '';
-      });
-      setAttendance(initialAttendance);
-      setRemarks(initialRemarks);
-
       if (classData && classData.id) {
-        await fetchExistingAttendance(classData.id, date);
+        await fetchExistingAttendance(classData.id, date, list);
       }
     } catch (err) {
       console.error('Attendance error:', err);
@@ -79,7 +69,7 @@ const ClassAttendance = () => {
   /**
    * Fetch existing daily attendance records for the given date and class
    */
-  const fetchExistingAttendance = async (classId, targetDate) => {
+  const fetchExistingAttendance = async (classId, targetDate, studentList = students) => {
     try {
       const res = await formMasterService.getAttendance(classId, targetDate);
       if (res && res.attendance && Array.isArray(res.attendance) && res.attendance.length > 0) {
@@ -89,11 +79,37 @@ const ClassAttendance = () => {
           fetchedAttendance[record.student_id] = record.status;
           fetchedRemarks[record.student_id] = record.remark || '';
         });
-        setAttendance(prev => ({ ...prev, ...fetchedAttendance }));
-        setRemarks(prev => ({ ...prev, ...fetchedRemarks }));
+
+        const updatedAttendance = {};
+        const updatedRemarks = {};
+        studentList.forEach(s => {
+          updatedAttendance[s.id] = fetchedAttendance[s.id] || 'present';
+          updatedRemarks[s.id] = fetchedRemarks[s.id] || '';
+        });
+
+        setAttendance(updatedAttendance);
+        setRemarks(updatedRemarks);
+      } else {
+        // Reset to default 'present' state for unrecorded dates
+        const defaultAttendance = {};
+        const defaultRemarks = {};
+        studentList.forEach(s => {
+          defaultAttendance[s.id] = 'present';
+          defaultRemarks[s.id] = '';
+        });
+        setAttendance(defaultAttendance);
+        setRemarks(defaultRemarks);
       }
     } catch (err) {
       console.info('No existing attendance recorded for date:', targetDate);
+      const defaultAttendance = {};
+      const defaultRemarks = {};
+      studentList.forEach(s => {
+        defaultAttendance[s.id] = 'present';
+        defaultRemarks[s.id] = '';
+      });
+      setAttendance(defaultAttendance);
+      setRemarks(defaultRemarks);
     }
   };
 
@@ -149,6 +165,15 @@ const ClassAttendance = () => {
     }
   };
 
+  // Dynamic daily attendance summary statistics
+  const summaryStats = {
+    total: students.length,
+    present: students.filter(s => (attendance[s.id] || 'present') === 'present').length,
+    late: students.filter(s => attendance[s.id] === 'late').length,
+    excused: students.filter(s => attendance[s.id] === 'excused').length,
+    absent: students.filter(s => attendance[s.id] === 'absent').length,
+  };
+
   return (
     <div style={{ maxWidth: '1050px', margin: '0 auto' }} className="animate-fade-in">
       <div className="glass-panel" style={{ padding: '32px' }}>
@@ -185,6 +210,61 @@ const ClassAttendance = () => {
             </div>
           </div>
         </div>
+
+        {/* Daily Summary Cards */}
+        {!loading && students.length > 0 && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '14px', marginBottom: '24px' }}>
+            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-dark)', borderRadius: '12px', padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <p style={{ fontSize: '11px', color: 'hsl(var(--text-secondary))', fontWeight: '600', textTransform: 'uppercase' }}>Enrolled</p>
+                <h3 style={{ fontSize: '20px', fontWeight: '800', marginTop: '2px', color: '#fff' }}>{summaryStats.total}</h3>
+              </div>
+              <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Layers size={16} color="#7b93ff" />
+              </div>
+            </div>
+
+            <div style={{ background: 'rgba(0, 230, 118, 0.08)', border: '1px solid rgba(0, 230, 118, 0.25)', borderRadius: '12px', padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <p style={{ fontSize: '11px', color: '#00e676', fontWeight: '700', textTransform: 'uppercase' }}>Present</p>
+                <h3 style={{ fontSize: '20px', fontWeight: '800', marginTop: '2px', color: '#00e676' }}>{summaryStats.present}</h3>
+              </div>
+              <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(0, 230, 118, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Check size={16} color="#00e676" />
+              </div>
+            </div>
+
+            <div style={{ background: 'rgba(255, 180, 0, 0.08)', border: '1px solid rgba(255, 180, 0, 0.25)', borderRadius: '12px', padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <p style={{ fontSize: '11px', color: '#ffb400', fontWeight: '700', textTransform: 'uppercase' }}>Late</p>
+                <h3 style={{ fontSize: '20px', fontWeight: '800', marginTop: '2px', color: '#ffb400' }}>{summaryStats.late}</h3>
+              </div>
+              <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(255, 180, 0, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Clock size={16} color="#ffb400" />
+              </div>
+            </div>
+
+            <div style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: '12px', padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <p style={{ fontSize: '11px', color: '#3b82f6', fontWeight: '700', textTransform: 'uppercase' }}>Excused</p>
+                <h3 style={{ fontSize: '20px', fontWeight: '800', marginTop: '2px', color: '#3b82f6' }}>{summaryStats.excused}</h3>
+              </div>
+              <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(59, 130, 246, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <HelpCircle size={16} color="#3b82f6" />
+              </div>
+            </div>
+
+            <div style={{ background: 'rgba(255, 75, 75, 0.08)', border: '1px solid rgba(255, 75, 75, 0.25)', borderRadius: '12px', padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <p style={{ fontSize: '11px', color: '#ff4b4b', fontWeight: '700', textTransform: 'uppercase' }}>Absent</p>
+                <h3 style={{ fontSize: '20px', fontWeight: '800', marginTop: '2px', color: '#ff4b4b' }}>{summaryStats.absent}</h3>
+              </div>
+              <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(255, 75, 75, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <X size={16} color="#ff4b4b" />
+              </div>
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div className="page-loading">

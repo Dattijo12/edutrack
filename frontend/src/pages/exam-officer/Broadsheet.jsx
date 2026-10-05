@@ -12,11 +12,20 @@ import { Button } from "@/components/ui/button";
 import examOfficerService from '../../services/examOfficerService';
 import classService from '../../services/classService';
 import studentService from '../../services/studentService';
+import { useSchool } from '../../context/SchoolContext';
 
 const Broadsheet = () => {
+  const { school } = useSchool();
   const [classes, setClasses] = useState([]);
   const [selectedClass, setSelectedClass] = useState('');
+  const [selectedSession, setSelectedSession] = useState('2025/2026');
+  const [selectedTerm, setSelectedTerm] = useState('1st Term');
   const [viewMode, setViewMode] = useState('broadsheet'); // 'broadsheet' or 'report_card'
+
+  useEffect(() => {
+    if (school?.active_session) setSelectedSession(school.active_session);
+    if (school?.active_term) setSelectedTerm(school.active_term);
+  }, [school]);
   
   const [broadsheetData, setBroadsheetData] = useState(null);
   const [reportCardData, setReportCardData] = useState(null);
@@ -82,7 +91,7 @@ const Broadsheet = () => {
     setLoading(true);
     setReportCardData(null);
     try {
-      const data = await examOfficerService.getBroadsheet(selectedClass);
+      const data = await examOfficerService.getBroadsheet(selectedClass, selectedTerm, selectedSession);
       setBroadsheetData(data);
       toast.success('Class Broadsheet generated successfully!');
     } catch (err) {
@@ -101,7 +110,7 @@ const Broadsheet = () => {
     setLoading(true);
     setBroadsheetData(null);
     try {
-      const data = await examOfficerService.getReportCard(selectedStudentId);
+      const data = await examOfficerService.getReportCard(selectedStudentId, selectedTerm, selectedSession);
       setReportCardData(data);
       toast.success('Report card generated successfully!');
     } catch (err) {
@@ -211,6 +220,32 @@ const Broadsheet = () => {
             </Select>
           </div>
 
+          <div style={{ minWidth: '180px' }}>
+            <Select value={selectedSession} onValueChange={(val) => setSelectedSession(val)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select Session" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="2024/2025">2024/2025</SelectItem>
+                <SelectItem value="2025/2026">2025/2026</SelectItem>
+                <SelectItem value="2026/2027">2026/2027</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div style={{ minWidth: '160px' }}>
+            <Select value={selectedTerm} onValueChange={(val) => setSelectedTerm(val)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select Term" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1st Term">1st Term</SelectItem>
+                <SelectItem value="2nd Term">2nd Term</SelectItem>
+                <SelectItem value="3rd Term">3rd Term</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {viewMode === 'report_card' && (
             <div style={{ minWidth: '260px' }}>
               <Select 
@@ -279,56 +314,63 @@ const Broadsheet = () => {
                 </tr>
               </thead>
               <tbody>
-                {broadsheetData.broadsheet?.map((row, idx) => (
-                  <tr key={row.student.id} style={{ border: '1px solid #000', background: idx % 2 === 0 ? '#fff' : '#f9f9f9' }}>
-                    <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'left' }}>{idx + 1}</td>
-                    <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'left', fontWeight: 'bold' }}>{row.student.name}</td>
-                    <td style={{ border: '1px solid #000', padding: '6px' }}>{row.student.admission_number}</td>
-                    {broadsheetData.subjects?.map(sub => {
-                      const score = row.scores[sub.id];
-                      return (
-                        <td key={sub.id} style={{ border: '1px solid #000', padding: '4px' }}>
-                          {score ? (
-                            <div>
-                              <div>{score.ca} | {score.exam} | <strong>{score.total}</strong></div>
-                              {score.approval_status === 'needs_correction' && (
-                                <div style={{ color: '#d32f2f', fontSize: '9px', fontWeight: 'bold', marginTop: '2px' }} className="no-print">
-                                  ⚠️ Needs Correction
+                {(broadsheetData.students || broadsheetData.broadsheet || [])?.map((item, idx) => {
+                  const student = item.student || item;
+                  const results = item.results || item.scores || {};
+                  return (
+                    <tr key={student.id || idx} style={{ border: '1px solid #000', background: idx % 2 === 0 ? '#fff' : '#f9f9f9' }}>
+                      <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'left' }}>{idx + 1}</td>
+                      <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'left', fontWeight: 'bold' }}>{student.name}</td>
+                      <td style={{ border: '1px solid #000', padding: '6px' }}>{student.admission_number}</td>
+                      {broadsheetData.subjects?.map(sub => {
+                        const score = results[sub.id] || results[String(sub.id)];
+                        return (
+                          <td key={sub.id} style={{ border: '1px solid #000', padding: '4px' }}>
+                            {score ? (
+                              <div>
+                                <div>
+                                  {score.ca !== undefined ? `${score.ca} | ${score.exam} | ` : ''}
+                                  <strong>{score.total}</strong> ({score.grade})
                                 </div>
-                              )}
-                              {score.id && (
-                                <div className="no-print" style={{ display: 'flex', gap: '4px', justifyContent: 'center', marginTop: '4px' }}>
-                                  {score.approval_status !== 'approved' && (
-                                    <button 
-                                      onClick={() => handleApproveScore(score.id)}
-                                      title="Approve Score"
-                                      style={{ background: '#2e7d32', color: '#fff', border: 'none', borderRadius: '3px', padding: '2px 4px', cursor: 'pointer', fontSize: '9px' }}
-                                    >
-                                      ✓
-                                    </button>
-                                  )}
-                                  {score.approval_status !== 'needs_correction' && (
-                                    <Button 
-                                      variant="destructive" 
-                                      size="sm" 
-                                      className="h-6 text-[10px] px-2"
-                                      onClick={() => openRejectModal(score)}
-                                    >
-                                      Reject
-                                    </Button>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          ) : '-'}
-                        </td>
-                      );
-                    })}
-                    <td style={{ border: '1px solid #000', padding: '6px', fontWeight: 'bold' }}>{row.total_marks}</td>
-                    <td style={{ border: '1px solid #000', padding: '6px', fontWeight: 'bold' }}>{row.average}%</td>
-                    <td style={{ border: '1px solid #000', padding: '6px', fontWeight: 'bold', color: '#0055ff' }}>{row.class_position_formatted}</td>
-                  </tr>
-                ))}
+                                {score.approval_status === 'needs_correction' && (
+                                  <div style={{ color: '#d32f2f', fontSize: '9px', fontWeight: 'bold', marginTop: '2px' }} className="no-print">
+                                    ⚠️ Needs Correction
+                                  </div>
+                                )}
+                                {score.id && (
+                                  <div className="no-print" style={{ display: 'flex', gap: '4px', justifyContent: 'center', marginTop: '4px' }}>
+                                    {score.approval_status !== 'approved' && (
+                                      <button 
+                                        onClick={() => handleApproveScore(score.id)}
+                                        title="Approve Score"
+                                        style={{ background: '#2e7d32', color: '#fff', border: 'none', borderRadius: '3px', padding: '2px 4px', cursor: 'pointer', fontSize: '9px' }}
+                                      >
+                                        ✓
+                                      </button>
+                                    )}
+                                    {score.approval_status !== 'needs_correction' && (
+                                      <button 
+                                        type="button"
+                                        className="btn-reject" 
+                                        style={{ padding: '4px 10px', fontSize: '11px' }}
+                                        onClick={() => openRejectModal(score)}
+                                      >
+                                        Reject
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            ) : '-'}
+                          </td>
+                        );
+                      })}
+                      <td style={{ border: '1px solid #000', padding: '6px', fontWeight: 'bold' }}>{item.total_marks}</td>
+                      <td style={{ border: '1px solid #000', padding: '6px', fontWeight: 'bold' }}>{item.average}%</td>
+                      <td style={{ border: '1px solid #000', padding: '6px', fontWeight: 'bold', color: '#0055ff' }}>{item.class_position_formatted || item.class_position}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -460,36 +502,50 @@ const Broadsheet = () => {
 
       {/* GLOBAL REJECTION MODAL */}
       <Dialog open={isRejectModalOpen} onOpenChange={setIsRejectModalOpen}>
-        <DialogContent>
+        <DialogContent className="reject-modal-container">
           <DialogHeader>
-            <DialogTitle>Reason for Rejection</DialogTitle>
+            <DialogTitle className="reject-modal-title">Reason for Rejection</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <Textarea 
+          <div style={{ marginTop: '8px', marginBottom: '16px' }}>
+            <p className="reject-modal-text">
+              Please provide a clear explanation for rejecting this student's result:
+            </p>
+            <textarea 
+              className="reject-textarea"
               placeholder="Enter specific reason for rejecting this score..." 
               value={rejectionReason} 
               onChange={(e) => setRejectionReason(e.target.value)} 
-              className="min-h-[100px]"
+              rows={4}
               required 
             />
-            <div className="flex justify-end gap-2 mt-4">
-              <Button variant="outline" onClick={() => setIsRejectModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button 
-                variant="destructive" 
-                disabled={!rejectionReason.trim() || submittingRejection} 
-                onClick={async () => {
-                  if (rejectingResult) {
-                    await handleRejectSubmit(rejectingResult.id, rejectionReason);
-                  }
-                  setIsRejectModalOpen(false);
-                  setRejectionReason("");
-                }}
-              >
-                {submittingRejection ? "Submitting..." : "Confirm Rejection"}
-              </Button>
-            </div>
+          </div>
+          <div className="reject-modal-actions">
+            <button 
+              type="button" 
+              className="btn-reject-cancel" 
+              onClick={() => setIsRejectModalOpen(false)}
+            >
+              Cancel
+            </button>
+            <button 
+              type="button"
+              className="btn-reject-submit"
+              disabled={!rejectionReason.trim() || submittingRejection} 
+              onClick={async (e) => {
+                e.preventDefault();
+                if (rejectingResult) {
+                  await handleRejectSubmit(rejectingResult.id, rejectionReason);
+                }
+                setIsRejectModalOpen(false);
+                setRejectionReason("");
+              }}
+            >
+              {submittingRejection ? (
+                <><span className="spinner spinner-sm"></span> Submitting...</>
+              ) : (
+                "Submit Reason"
+              )}
+            </button>
           </div>
         </DialogContent>
       </Dialog>

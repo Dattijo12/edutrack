@@ -5,7 +5,11 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreStudentRequest;
 use App\Http\Requests\Admin\UpdateStudentRequest;
+use App\Models\Guardian;
 use App\Models\Student;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class StudentController extends Controller
 {
@@ -36,6 +40,7 @@ class StudentController extends Controller
 
     /**
      * Store a newly created student in storage.
+     * Automated Guardian Account Creation & Linking (Option B)
      */
     public function store(StoreStudentRequest $request)
     {
@@ -47,16 +52,54 @@ class StudentController extends Controller
         $validated['last_name'] = $nameParts[1] ?? '';
         unset($validated['name']);
 
-        // Maintain backward compatibility between parent_phone and guardian_phone
-        if (isset($validated['parent_phone']) && empty($validated['guardian_phone'])) {
-            $validated['guardian_phone'] = $validated['parent_phone'];
-        }
+        // Standardize guardian_phone and parent_phone
+        $phone = $validated['guardian_phone'] ?? $validated['parent_phone'] ?? null;
+        $validated['guardian_phone'] = $phone;
+        $validated['parent_phone'] = $phone;
 
-        $student = Student::create($validated);
+        $student = DB::transaction(function () use ($validated, $phone) {
+            // 2. Deduplication & Account Creation Logic: Check if a Guardian already exists
+            $guardian = Guardian::where('phone', $phone)->first();
+
+            if (!$guardian) {
+                $guardianName = $validated['guardian_name'] ?? 'Guardian';
+                $guardianRelationship = $validated['guardian_relationship'] ?? 'Parent';
+                $email = "{$phone}@edutrack.com";
+
+                // a. Find or create User record for Guardian
+                $user = User::where('phone', $phone)->orWhere('email', $email)->first();
+
+                if (!$user) {
+                    $user = User::create([
+                        'name' => $guardianName,
+                        'phone' => $phone,
+                        'email' => $email,
+                        'password' => Hash::make('EduTrack2026!'),
+                        'role' => 'guardian',
+                    ]);
+                }
+
+                // b. Create a new Guardian record linked to this new user
+                $guardian = Guardian::create([
+                    'user_id' => $user->id,
+                    'name' => $guardianName,
+                    'phone' => $phone,
+                    'relationship' => $guardianRelationship,
+                ]);
+            }
+
+            // 3. Student Linking: Assign the resulting guardian_id to the newly created Student record
+            $validated['guardian_id'] = $guardian->id;
+
+            // Clean up transient request fields before Student creation
+            unset($validated['guardian_name'], $validated['guardian_relationship']);
+
+            return Student::create($validated);
+        });
 
         return response()->json([
             'message' => 'Student registered successfully',
-            'data' => $student->load('class')
+            'data' => $student->load(['class', 'guardian'])
         ], 201);
     }
 

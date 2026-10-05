@@ -33,6 +33,9 @@ import ClassRemarks from './pages/form-master/ClassRemarks';
 // Bursar Pages
 import FeePayments from './pages/bursar/FeePayments';
 
+// Guardian Pages
+import GuardianDashboard from './pages/guardian/GuardianDashboard';
+
 function App() {
   return (
     <AuthProvider>
@@ -273,6 +276,17 @@ function App() {
               } 
             />
             
+            <Route 
+              path="/guardian/dashboard" 
+              element={
+                <ProtectedRoute allowedRoles={['guardian', 'parent', 'admin']}>
+                  <AppLayout>
+                    <GuardianDashboard />
+                  </AppLayout>
+                </ProtectedRoute>
+              } 
+            />
+
             {/* Fallback to Dashboard */}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
