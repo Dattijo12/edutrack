@@ -8,6 +8,8 @@ use App\Models\SchoolClass;
 use App\Models\Student;
 use App\Models\SchoolSetting;
 use App\Models\AcademicTerm;
+use App\Models\ResultWindow;
+use App\Models\TermSummary;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -51,7 +53,7 @@ class ResultController extends Controller
     }
 
     /**
-     * Bulk approve results using result_ids array.
+     * Bulk approve results using result_ids array with ResultWindow access control.
      */
     public function bulkApprove(Request $request)
     {
@@ -60,36 +62,168 @@ class ResultController extends Controller
             'result_ids.*' => 'required|integer|exists:results,id',
         ]);
 
+        $firstResult = Result::find($validated['result_ids'][0] ?? null);
+        if ($firstResult) {
+            $window = ResultWindow::where('academic_session', $firstResult->academic_session)
+                ->where('term', $firstResult->term)
+                ->first();
+
+            $isOpen = $window ? (bool) $window->is_open : ResultWindow::where('is_open', true)->exists();
+
+            if (!$isOpen) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Result entry and approval window is currently closed for this session/term.',
+                ], 403);
+            }
+        }
+
         DB::transaction(function () use ($validated) {
-            Result::whereIn('id', $validated['result_ids'])->update([
-                'status' => 'approved',
-                'approval_status' => 'approved',
-                'rejection_reason' => null,
-            ]);
+            $resultsToApprove = Result::whereIn('id', $validated['result_ids'])->get();
+
+            foreach ($resultsToApprove as $res) {
+                $res->update([
+                    'status' => 'approved',
+                    'approval_status' => 'approved',
+                    'rejection_reason' => null,
+                ]);
+
+                $this->generateStudentRemarks(
+                    $res->student_id,
+                    $res->class_id,
+                    $res->term,
+                    $res->academic_session
+                );
+            }
         });
 
         return response()->json([
-            'message' => 'Results approved successfully.',
+            'message' => 'Results approved successfully and automated remarks generated.',
             'approved_count' => count($validated['result_ids']),
         ], 200);
     }
 
     /**
-     * Approve a specific result record.
-     * Sets both status and approval_status to 'approved' and clears any previous rejection reason.
+     * Approve a specific result record (alias for approveResult).
      */
     public function approve(Request $request, Result $result)
     {
-        $result->update([
-            'status' => 'approved',
-            'approval_status' => 'approved',
-            'rejection_reason' => null,
-        ]);
+        return $this->approveResult($request, $result);
+    }
+
+    /**
+     * Approve a specific result record for the Exam Officer.
+     * Enforces strict time-bound ResultWindow validation and generates automated hybrid remarks.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\Result  $result
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function approveResult(Request $request, Result $result)
+    {
+        // 1. Time-Bound Access Control Check: Ensure result_window is open (is_open == true)
+        $window = ResultWindow::where('academic_session', $result->academic_session)
+            ->where('term', $result->term)
+            ->first();
+
+        $isOpen = $window ? (bool) $window->is_open : ResultWindow::where('is_open', true)->exists();
+
+        if (!$isOpen) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Result entry and approval window is currently closed. Action forbidden.',
+            ], 403);
+        }
+
+        DB::transaction(function () use ($result) {
+            $result->update([
+                'status' => 'approved',
+                'approval_status' => 'approved',
+                'rejection_reason' => null,
+            ]);
+
+            // 2. Automated Hybrid Remarks Logic: Recalculate average percentage & remarks
+            $this->generateStudentRemarks(
+                $result->student_id,
+                $result->class_id,
+                $result->term,
+                $result->academic_session
+            );
+        });
 
         return response()->json([
-            'message' => 'Result approved successfully.',
-            'data' => $result,
+            'message' => 'Result approved successfully and automated hybrid remarks updated.',
+            'data' => $result->fresh(),
         ], 200);
+    }
+
+    /**
+     * Algorithm to calculate overall average percentage and generate automated hybrid remarks.
+     * Scale:
+     *  - 75-100%: Form Master: Excellent | Principal: Outstanding
+     *  - 65-74%: Form Master: Very Good | Principal: Very Good
+     *  - 50-64%: Form Master: Good | Principal: Good
+     *  - 40-49%: Form Master: Fair | Principal: Fair
+     *  - 0-39%: Form Master: Poor | Principal: Disappointing
+     */
+    public function generateStudentRemarks($studentId, $classId, $term, $academicSession)
+    {
+        $approvedResults = Result::where('student_id', $studentId)
+            ->where('term', $term)
+            ->where('academic_session', $academicSession)
+            ->where(function ($q) {
+                $q->where('approval_status', 'approved')
+                  ->orWhere('status', 'approved');
+            })
+            ->get();
+
+        $subjectCount = $approvedResults->count();
+        $totalScore = $approvedResults->sum('total_score');
+        $totalObtainable = $subjectCount * 100;
+
+        $averagePercentage = $totalObtainable > 0 ? ($totalScore / $totalObtainable) * 100 : 0.0;
+
+        if ($averagePercentage >= 75) {
+            $formMasterRemark = 'An excellent performance. Keep up the outstanding work and remain focused.';
+            $principalRemark  = 'An outstanding result. The school is highly proud of your academic excellence.';
+        } elseif ($averagePercentage >= 65) {
+            $formMasterRemark = 'A very good result. You are doing great, but you can still aim higher next term.';
+            $principalRemark  = 'Very good performance. Maintain this energy and keep making us proud.';
+        } elseif ($averagePercentage >= 50) {
+            $formMasterRemark = 'A good effort, but there is still plenty of room for improvement. Read your books.';
+            $principalRemark  = 'Good result. I encourage you to put in more effort to achieve excellence.';
+        } elseif ($averagePercentage >= 40) {
+            $formMasterRemark = 'A fair result. You need to be more serious and dedicated to your studies.';
+            $principalRemark  = 'Fair performance. You must work much harder next term to secure your academic future.';
+        } else {
+            $formMasterRemark = 'Poor performance. A drastic change in your attitude towards learning is urgently required.';
+            $principalRemark  = 'A disappointing result. You need to wake up, seek help from teachers, and study hard.';
+        }
+
+        $academicTerm = AcademicTerm::where('session', $academicSession)
+            ->where('term', $term)
+            ->first();
+
+        TermSummary::updateOrCreate(
+            [
+                'student_id' => $studentId,
+                'class_id' => $classId,
+                'term_id' => $academicTerm?->id ?? 1,
+            ],
+            [
+                'total_marks' => $totalScore,
+                'average' => round($averagePercentage, 2),
+                'form_master_remark' => $formMasterRemark,
+                'principal_remark' => $principalRemark,
+            ]
+        );
+
+        return [
+            'total_score' => $totalScore,
+            'average_percentage' => round($averagePercentage, 2),
+            'form_master_remark' => $formMasterRemark,
+            'principal_remark' => $principalRemark,
+        ];
     }
 
     /**

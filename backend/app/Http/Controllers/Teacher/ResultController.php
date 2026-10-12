@@ -9,6 +9,7 @@ use App\Models\Subject;
 use App\Models\Student;
 use App\Models\SubjectAssignment;
 use App\Models\AcademicTerm;
+use App\Models\ResultWindow;
 use App\Services\GradingService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -38,6 +39,20 @@ class ResultController extends Controller
             'term' => 'required|string',
             'academic_session' => 'required|string',
         ]);
+
+        // Time-Bound Access Control Check: Reject grade submissions if ResultWindow is closed
+        $window = ResultWindow::where('academic_session', $validated['academic_session'])
+            ->where('term', $validated['term'])
+            ->first();
+
+        $isOpen = $window ? (bool) $window->is_open : ResultWindow::where('is_open', true)->exists();
+
+        if (!$isOpen) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Result window is closed. Grade submission is forbidden.',
+            ], 403);
+        }
 
         $student = Student::findOrFail($validated['student_id']);
 
@@ -97,6 +112,20 @@ class ResultController extends Controller
     {
         if ($result->approval_status === 'approved' && !$request->user()->isAdmin()) {
             return response()->json(['message' => 'Cannot edit approved result.'], 422);
+        }
+
+        // Time-Bound Access Control Check: Reject edits if ResultWindow is closed
+        $window = ResultWindow::where('academic_session', $result->academic_session)
+            ->where('term', $result->term)
+            ->first();
+
+        $isOpen = $window ? (bool) $window->is_open : ResultWindow::where('is_open', true)->exists();
+
+        if (!$isOpen) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Result window is closed. Grade submission is forbidden.',
+            ], 403);
         }
 
         $maxScores = GradingService::getMaxScores();
@@ -247,6 +276,20 @@ class ResultController extends Controller
             'term' => 'required|string',
             'academic_session' => 'required|string',
         ]);
+
+        // Time-Bound Access Control Check: Reject bulk uploads if ResultWindow is closed
+        $window = ResultWindow::where('academic_session', $request->academic_session)
+            ->where('term', $request->term)
+            ->first();
+
+        $isOpen = $window ? (bool) $window->is_open : ResultWindow::where('is_open', true)->exists();
+
+        if (!$isOpen) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Result window is closed. Grade submission is forbidden.',
+            ], 403);
+        }
 
         $maxScores = GradingService::getMaxScores();
         $maxCa = $maxScores['max_ca'];

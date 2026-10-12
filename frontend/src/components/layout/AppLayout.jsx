@@ -5,7 +5,8 @@ import {
   LayoutDashboard, Settings, Users, Layers, BookOpen, 
   GraduationCap, ClipboardList, FileCheck2, BarChart3, 
   FileSpreadsheet, KeyRound, ShieldCheck, LogOut, Sun, Moon, 
-  Bell, Menu, X, Building2, ChevronRight, CheckCircle2, AlertCircle
+  Bell, Menu, X, Building2, ChevronRight, CheckCircle2, AlertCircle,
+  CalendarClock, MessageSquare
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -74,7 +75,9 @@ const AppLayout = ({ children }) => {
         { label: 'Classes & Arms', path: '/admin/classes', icon: Layers },
         { label: 'Subject Curriculum', path: '/admin/subjects', icon: BookOpen },
         { label: 'Student Directory', path: '/admin/students', icon: GraduationCap },
-        { label: 'Bulk Upload', path: '/admin/bulk-upload', icon: FileSpreadsheet }
+        { label: 'Bulk Upload', path: '/admin/bulk-upload', icon: FileSpreadsheet },
+        { label: 'Result Windows', path: '/admin/result-windows', icon: CalendarClock },
+        { label: 'Manage Remarks', path: '/admin/remarks', icon: MessageSquare }
       );
     }
 
@@ -118,6 +121,8 @@ const AppLayout = ({ children }) => {
     if (p === '/admin/classes') return 'Classes & Arms Management';
     if (p === '/admin/subjects') return 'Subject Curriculum';
     if (p === '/admin/students') return 'Student Directory';
+    if (p === '/admin/result-windows') return 'Time-Bound Result Windows';
+    if (p === '/admin/remarks') return 'Manage Principal Remarks';
     if (p === '/teacher/results-entry') return 'Gradebook & Score Entry';
     if (p === '/teacher/my-subjects') return 'My Assigned Subjects';
     if (p === '/exam-officer/approvals') return 'Results Approval Center';

@@ -93,6 +93,20 @@ const resultService = {
     });
     return response.data;
   },
+
+  /**
+   * Fetch active result windows status for teacher access control.
+   */
+  async getResultWindows() {
+    try {
+      const response = await api.get('/teacher/result-windows');
+      return response.data;
+    } catch (err) {
+      console.warn('Failed to fetch result windows via teacher endpoint, trying fallback:', err);
+      const fallback = await api.get('/admin/result-windows');
+      return fallback.data;
+    }
+  },
 };
 
 export default resultService;

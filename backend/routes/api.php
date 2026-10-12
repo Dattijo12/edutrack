@@ -52,6 +52,13 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Dashboard Analytics
         Route::get('/analytics/enrollment', 'App\Http\Controllers\Admin\AnalyticsController@enrollment');
+
+        // Result Windows Management
+        Route::get('/result-windows', 'App\Http\Controllers\Admin\ResultWindowController@index');
+        Route::post('/result-windows', 'App\Http\Controllers\Admin\ResultWindowController@store');
+        Route::post('/result-windows/{resultWindow}/toggle', 'App\Http\Controllers\Admin\ResultWindowController@toggle');
+        Route::put('/result-windows/{resultWindow}/toggle', 'App\Http\Controllers\Admin\ResultWindowController@toggle');
+        Route::delete('/result-windows/{resultWindow}', 'App\Http\Controllers\Admin\ResultWindowController@destroy');
     });
 
     /**
@@ -71,6 +78,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/students', 'App\Http\Controllers\Teacher\ResultController@students')->name('teacher.students');
         Route::get('/max-scores', 'App\Http\Controllers\Teacher\ResultController@maxScores')->name('teacher.max_scores');
         Route::get('/results-rejected', 'App\Http\Controllers\Teacher\ResultController@rejectedResults')->name('teacher.results.rejected');
+        Route::get('/result-windows', 'App\Http\Controllers\Admin\ResultWindowController@index')->name('teacher.result_windows');
     });
 
     /**

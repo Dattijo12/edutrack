@@ -16,6 +16,8 @@ import UserManagement from './pages/admin/UserManagement';
 import SubjectAssignments from './pages/admin/SubjectAssignments';
 import ClassPromotion from './pages/admin/ClassPromotion';
 import BulkUpload from './pages/admin/BulkUpload';
+import ResultWindowManagement from './pages/admin/ResultWindowManagement';
+import SuperAdminRemarks from './pages/admin/SuperAdminRemarks';
 import ResultsEntry from './pages/teacher/ResultsEntry';
 import Approvals from './pages/exam-officer/Approvals';
 import Reports from './pages/exam-officer/Reports';
@@ -156,6 +158,28 @@ function App() {
                 <ProtectedRoute allowedRoles={['admin']}>
                   <AppLayout>
                     <BulkUpload />
+                  </AppLayout>
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="/admin/result-windows" 
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AppLayout>
+                    <ResultWindowManagement />
+                  </AppLayout>
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="/admin/remarks" 
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AppLayout>
+                    <SuperAdminRemarks />
                   </AppLayout>
                 </ProtectedRoute>
               } 
