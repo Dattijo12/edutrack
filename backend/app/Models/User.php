@@ -83,4 +83,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(SchoolClass::class, 'form_master_id');
     }
+
+    public function timetables()
+    {
+        return $this->hasMany(Timetable::class, 'teacher_id');
+    }
 }

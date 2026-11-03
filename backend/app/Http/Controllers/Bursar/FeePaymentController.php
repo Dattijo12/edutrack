@@ -9,6 +9,8 @@ use App\Models\AcademicTerm;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+use App\Services\AuditService;
+
 class FeePaymentController extends Controller
 {
     public function index(Request $request)
@@ -48,36 +50,51 @@ class FeePaymentController extends Controller
             'amount_paid' => 'required|numeric|min:0',
         ]);
 
+        $actingUser = auth()->user();
         $student = Student::findOrFail($validated['student_id']);
         $balance = max(0, $validated['amount_due'] - $validated['amount_paid']);
         $paymentStatus = ($balance <= 0) ? 'paid' : (($validated['amount_paid'] > 0) ? 'partial' : 'owing');
 
-        $payment = FeePayment::firstOrNew([
-            'student_id' => $validated['student_id'],
-            'term_id' => $validated['term_id'],
-        ]);
+        $payment = DB::transaction(function () use ($validated, $student, $balance, $paymentStatus, $actingUser) {
+            $paymentRecord = FeePayment::firstOrNew([
+                'student_id' => $validated['student_id'],
+                'term_id' => $validated['term_id'],
+            ]);
 
-        $auditTrail = json_decode($payment->audit_trail ?? '[]', true);
-        $auditTrail[] = [
-            'date' => date('Y-m-d H:i:s'),
-            'amount_paid' => $validated['amount_paid'],
-            'amount_due' => $validated['amount_due'],
-            'balance' => $balance,
-            'status' => $paymentStatus,
-            'recorded_by' => auth()->user()->name,
-        ];
+            $previousStatus = $paymentRecord->exists ? $paymentRecord->payment_status : 'owing';
 
-        $payment->amount_due = $validated['amount_due'];
-        $payment->amount_paid = $validated['amount_paid'];
-        $payment->balance = $balance;
-        $payment->payment_status = $paymentStatus;
-        $payment->recorded_by = auth()->id();
-        $payment->audit_trail = json_encode($auditTrail);
-        $payment->save();
+            $auditTrail = json_decode($paymentRecord->audit_trail ?? '[]', true);
+            $auditTrail[] = [
+                'date' => date('Y-m-d H:i:s'),
+                'amount_paid' => $validated['amount_paid'],
+                'amount_due' => $validated['amount_due'],
+                'balance' => $balance,
+                'status' => $paymentStatus,
+                'recorded_by' => $actingUser ? $actingUser->name : 'System',
+            ];
 
-        // Automatically update student clearance status
-        $student->fee_cleared_status = ($paymentStatus === 'paid');
-        $student->save();
+            $paymentRecord->amount_due = $validated['amount_due'];
+            $paymentRecord->amount_paid = $validated['amount_paid'];
+            $paymentRecord->balance = $balance;
+            $paymentRecord->payment_status = $paymentStatus;
+            $paymentRecord->recorded_by = $actingUser ? $actingUser->id : null;
+            $paymentRecord->audit_trail = json_encode($auditTrail);
+            $paymentRecord->save();
+
+            // Automatically update student clearance status
+            $student->fee_cleared_status = ($paymentStatus === 'paid');
+            $student->save();
+
+            // Financial Audit Trail Logging
+            $userName = $actingUser ? "{$actingUser->name} ({$actingUser->role})" : 'System';
+            AuditService::log(
+                'fee_payment_recorded',
+                "Fee payment of ₦{$validated['amount_paid']} recorded for student ID {$student->id} ({$student->name}). Amount due: ₦{$validated['amount_due']}, Balance: ₦{$balance}. Status transitioned from '{$previousStatus}' to '{$paymentStatus}' by {$userName}.",
+                $paymentRecord
+            );
+
+            return $paymentRecord;
+        });
 
         return response()->json([
             'message' => 'Payment recorded successfully',
@@ -92,8 +109,21 @@ class FeePaymentController extends Controller
             'fee_cleared_status' => 'required|boolean',
         ]);
 
-        $student->fee_cleared_status = $validated['fee_cleared_status'];
-        $student->save();
+        $actingUser = auth()->user();
+        $previousStatus = $student->fee_cleared_status ? 'cleared' : 'owing';
+        $newStatus = $validated['fee_cleared_status'] ? 'cleared' : 'owing';
+
+        DB::transaction(function () use ($student, $validated, $previousStatus, $newStatus, $actingUser) {
+            $student->fee_cleared_status = $validated['fee_cleared_status'];
+            $student->save();
+
+            $userName = $actingUser ? "{$actingUser->name} ({$actingUser->role})" : 'System';
+            AuditService::log(
+                'fee_clearance_updated',
+                "Fee clearance status updated from '{$previousStatus}' to '{$newStatus}' for student ID {$student->id} ({$student->name}) by {$userName}.",
+                $student
+            );
+        });
 
         return response()->json([
             'message' => 'Student fee clearance status updated successfully',

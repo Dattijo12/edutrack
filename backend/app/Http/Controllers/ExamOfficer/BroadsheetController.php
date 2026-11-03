@@ -75,15 +75,20 @@ class BroadsheetController extends Controller
             str_replace(['1st Term', '2nd Term', '3rd Term', 'First Term', 'Second Term', 'Third Term', 'Term 1', 'Term 2', 'Term 3'], ['1', '2', '3', '1', '2', '3', '1', '2', '3'], $term),
         ]));
 
+        // Batch eager load all approved results for all students in this class to eliminate N+1 query loop
+        $studentIds = $students->pluck('id');
+        $groupedResults = Result::whereIn('student_id', $studentIds)
+            ->whereIn('term', $termVariations)
+            ->where('academic_session', $session)
+            ->where(function ($q) {
+                $q->where('approval_status', 'approved')
+                  ->orWhere('status', 'approved');
+            })
+            ->get()
+            ->groupBy('student_id');
+
         foreach ($students as $student) {
-            $approvedResults = Result::where('student_id', $student->id)
-                ->whereIn('term', $termVariations)
-                ->where('academic_session', $session)
-                ->where(function ($q) {
-                    $q->where('approval_status', 'approved')
-                      ->orWhere('status', 'approved');
-                })
-                ->get();
+            $approvedResults = $groupedResults->get($student->id, collect());
 
             $resultsMap = [];
             $totalMarks = 0;
@@ -173,6 +178,18 @@ class BroadsheetController extends Controller
         $session = $request->query('session') ?: $defaultSession;
 
         $student = Student::with('class')->findOrFail($studentId);
+
+        // IDOR Prevention: If accessed by a student user, strictly prevent access to any other student's report card
+        $user = $request->user();
+        if ($user && (($user instanceof Student) || (isset($user->role) && $user->role === 'student'))) {
+            if ((int)$user->id !== (int)$student->id) {
+                return response()->json([
+                    'status' => 'forbidden',
+                    'message' => 'Forbidden. You do not have permission to access another student\'s report card.',
+                ], 403);
+            }
+        }
+
         $settings = SchoolSetting::first();
         $termObj = AcademicTerm::where('session', $session)->where('term', $term)->first();
 

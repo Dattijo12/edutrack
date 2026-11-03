@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\SubjectAssignment;
 use App\Models\SchoolClass;
+use App\Services\AuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
@@ -103,6 +104,13 @@ class UserController extends Controller
             }
         }
 
+        // Audit trail: record new staff account creation
+        AuditService::log(
+            'user_created',
+            "New staff account created: {$user->name} (Role: {$user->role}, Email: {$user->email}).",
+            $user
+        );
+
         return response()->json([
             'message' => 'Staff account created successfully',
             'data' => $user->load(['subjectAssignments.schoolClass', 'subjectAssignments.subject', 'assignedClasses'])
@@ -198,6 +206,13 @@ class UserController extends Controller
                     ->update(['form_master_id' => $user->id]);
             }
         }
+
+        // Audit trail: record staff account update
+        AuditService::log(
+            'user_updated',
+            "Staff account updated: {$user->name} (Role: {$user->role}, Status: {$user->status}).",
+            $user
+        );
 
         return response()->json([
             'message' => 'User account updated successfully',

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\AuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -51,6 +52,9 @@ class AuthController extends Controller
         // Generate Sanctum token
         $token = $user->createToken('auth-token')->plainTextToken;
 
+        // Audit trail: record successful staff login
+        AuditService::log('login', "Staff {$user->name} ({$user->role}) logged in.", $user);
+
         return response()->json([
             'message' => 'Login successful',
             'token' => $token,
@@ -67,7 +71,12 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
+        $user = $request->user();
+
+        // Audit trail: record staff logout
+        AuditService::log('logout', "Staff {$user->name} ({$user->role}) logged out.", $user);
+
+        $user->currentAccessToken()->delete();
 
         return response()->json([
             'message' => 'Logged out successfully'
@@ -107,6 +116,9 @@ class AuthController extends Controller
 
         $user->password = Hash::make($request->new_password);
         $user->save();
+
+        // Audit trail: record password change
+        AuditService::log('password_changed', "Staff {$user->name} changed their password.", $user);
 
         return response()->json([
             'message' => 'Password updated successfully'

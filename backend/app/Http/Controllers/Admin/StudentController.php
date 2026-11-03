@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\UpdateStudentRequest;
 use App\Models\Guardian;
 use App\Models\Student;
 use App\Models\User;
+use App\Services\AuditService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
@@ -97,6 +98,13 @@ class StudentController extends Controller
             return Student::create($validated);
         });
 
+        // Audit trail: record new student registration
+        AuditService::log(
+            'student_created',
+            "New student registered: {$student->name} (Adm: {$student->admission_number}).",
+            $student
+        );
+
         return response()->json([
             'message' => 'Student registered successfully',
             'data' => $student->load(['class', 'guardian'])
@@ -131,6 +139,13 @@ class StudentController extends Controller
 
         $student->update($validated);
 
+        // Audit trail: record student profile update
+        AuditService::log(
+            'student_updated',
+            "Student profile updated: {$student->name} (Adm: {$student->admission_number}).",
+            $student
+        );
+
         return response()->json([
             'message' => 'Student profile updated successfully',
             'data' => $student->load('class')
@@ -142,7 +157,18 @@ class StudentController extends Controller
      */
     public function destroy(Student $student)
     {
+        // Capture details before soft-delete for the audit description
+        $studentName = $student->name;
+        $admissionNumber = $student->admission_number;
+
         $student->delete();
+
+        // Audit trail: record student deletion
+        AuditService::log(
+            'student_deleted',
+            "Student deleted: {$studentName} (Adm: {$admissionNumber}).",
+            $student
+        );
 
         return response()->json([
             'message' => 'Student profile deleted successfully'

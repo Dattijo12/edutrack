@@ -58,7 +58,60 @@ const studentService = {
   async delete(id) {
     const response = await api.delete(`/admin/students/${id}`);
     return response.data;
-  }
+  },
+
+  /**
+   * Student Portal Login API
+   */
+  async studentLogin(admissionNumber, password) {
+    const response = await api.post('/student/login', {
+      admission_number: admissionNumber,
+      password: password,
+    });
+    return response.data;
+  },
+
+  /**
+   * Fetch Authenticated Student's Results API
+   */
+  async getStudentResults(session = '', term = '') {
+    const params = {};
+    if (session) params.session = session;
+    if (term) params.term = term;
+    const response = await api.get('/student/results', { params });
+    return response.data;
+  },
+
+  /**
+   * Student Portal Logout API
+   */
+  async studentLogout() {
+    try {
+      const response = await api.post('/student/logout');
+      return response.data;
+    } catch (err) {
+      console.warn('Student logout warning:', err);
+    }
+  },
+
+  /**
+   * Download the server-generated PDF report card.
+   * Returns a Blob that the caller can use to trigger a browser download.
+   *
+   * @param {string} session - Academic session (e.g. "2025/2026")
+   * @param {string} term    - Term name (e.g. "1st Term")
+   * @returns {Promise<Blob>}
+   */
+  async downloadReportCard(session = '', term = '') {
+    const params = {};
+    if (session) params.session = session;
+    if (term) params.term = term;
+    const response = await api.get('/student/report-card/download', {
+      params,
+      responseType: 'blob',
+    });
+    return response.data;
+  },
 };
 
 export default studentService;

@@ -9,8 +9,9 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
-// Public Endpoints
-Route::post('/login', 'App\Http\Controllers\AuthController@login')->name('login');
+// Public Endpoints with rate limiting on login
+Route::post('/login', 'App\Http\Controllers\AuthController@login')->middleware('throttle:5,1')->name('login');
+Route::post('/student/login', 'App\Http\Controllers\Student\StudentAuthController@login')->middleware('throttle:5,1')->name('student.login');
 Route::get('/verify-result/{hash}', 'App\Http\Controllers\ExamOfficer\BroadsheetController@verifyResult')->name('result.verify');
 Route::get('/school-settings', 'App\Http\Controllers\Admin\SchoolSettingController@show')->name('school.settings.public');
 
@@ -28,6 +29,13 @@ Route::middleware('auth:sanctum')->group(function () {
      * 1. ADMIN ROLE ROUTES
      */
     Route::middleware('role:admin')->prefix('admin')->group(function () {
+        // Aggregated Dashboard Stats (single-payload endpoint)
+        Route::get('/dashboard/stats', 'App\Http\Controllers\Admin\AdminDashboardController@getDashboardStats')->name('admin.dashboard.stats');
+
+        // System Audit Trail
+        Route::get('/audit-logs', 'App\Http\Controllers\Admin\AuditLogController@index')->name('admin.audit_logs.index');
+        Route::get('/audit-logs/actions', 'App\Http\Controllers\Admin\AuditLogController@actions')->name('admin.audit_logs.actions');
+
         Route::apiResource('users', 'App\Http\Controllers\Admin\UserController');
         Route::apiResource('classes', 'App\Http\Controllers\Admin\ClassController');
         Route::apiResource('subjects', 'App\Http\Controllers\Admin\SubjectController');
@@ -43,8 +51,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/subject-assignments', 'App\Http\Controllers\Admin\SubjectAssignmentController@store');
         Route::delete('/subject-assignments/{assignment}', 'App\Http\Controllers\Admin\SubjectAssignmentController@destroy');
 
-        // 1-Click Class Promotion
+        // 1-Click Class Promotion (legacy bulk move)
         Route::post('/promote-class', 'App\Http\Controllers\Admin\PromotionController@promote');
+
+        // Granular per-student promotion with history tracking
+        Route::post('/promotions', 'App\Http\Controllers\Admin\PromotionController@promoteClass')->name('admin.promotions.store');
 
         // Bulk Upload Endpoints
         Route::post('/bulk-upload/students', 'App\Http\Controllers\Admin\BulkUploadController@uploadStudents');
@@ -58,6 +69,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/result-windows', 'App\Http\Controllers\Admin\ResultWindowController@store');
         Route::post('/result-windows/{resultWindow}/toggle', 'App\Http\Controllers\Admin\ResultWindowController@toggle');
         Route::put('/result-windows/{resultWindow}/toggle', 'App\Http\Controllers\Admin\ResultWindowController@toggle');
+        Route::post('/result-windows/{resultWindow}/toggle-publish', 'App\Http\Controllers\Admin\ResultWindowController@togglePublish');
         Route::delete('/result-windows/{resultWindow}', 'App\Http\Controllers\Admin\ResultWindowController@destroy');
     });
 
@@ -85,6 +97,9 @@ Route::middleware('auth:sanctum')->group(function () {
      * 3. BURSAR ROLE ROUTES
      */
     Route::middleware('role:bursar,admin')->prefix('bursar')->group(function () {
+        // Aggregated Bursar Dashboard Stats
+        Route::get('/dashboard-stats', 'App\Http\Controllers\Bursar\BursarDashboardController@getStats')->name('bursar.dashboard.stats');
+
         Route::get('/classes', 'App\Http\Controllers\Bursar\BursarController@getClasses');
         Route::get('/students-by-class', 'App\Http\Controllers\Bursar\BursarController@getStudentsByClass');
         Route::get('/payments', 'App\Http\Controllers\Bursar\BursarController@index');
@@ -131,5 +146,30 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:guardian,parent,admin')->prefix('guardian')->group(function () {
         Route::get('/dashboard', 'App\Http\Controllers\Guardian\GuardianDashboardController@index');
         Route::get('/students/{student}/results', 'App\Http\Controllers\Guardian\GuardianDashboardController@studentResults');
+    });
+
+    /**
+     * 7. STUDENT PORTAL ROUTES
+     */
+    Route::prefix('student')->group(function () {
+        Route::get('/profile', 'App\Http\Controllers\Student\StudentAuthController@profile')->name('student.profile');
+        Route::post('/logout', 'App\Http\Controllers\Student\StudentAuthController@logout')->name('student.logout');
+        Route::get('/results', 'App\Http\Controllers\Student\StudentResultController@index')->name('student.results');
+        Route::get('/report-card/download', 'App\Http\Controllers\Student\StudentResultController@downloadReportCard')->name('student.report_card.download');
+    });
+
+    /**
+     * 8. TIMETABLE MODULE ROUTES
+     */
+    // View class timetable: Accessible by admin, teachers, and students of that class
+    Route::get('/timetable/class/{classId}', 'App\Http\Controllers\Api\TimetableController@index')
+        ->name('timetable.class.index');
+
+    // Administrative timetable creation and deletion: Restricted to admin / super_admin
+    Route::middleware('role:admin,super_admin')->group(function () {
+        Route::post('/timetable', 'App\Http\Controllers\Api\TimetableController@store')
+            ->name('timetable.store');
+        Route::delete('/timetable/{id}', 'App\Http\Controllers\Api\TimetableController@destroy')
+            ->name('timetable.destroy');
     });
 });

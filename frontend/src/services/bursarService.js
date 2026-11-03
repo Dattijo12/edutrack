@@ -55,6 +55,14 @@ const bursarService = {
   async toggleClearance(studentId, fee_cleared_status) {
     const res = await api.post(`/bursar/students/${studentId}/toggle-clearance`, { fee_cleared_status });
     return res.data;
+  },
+
+  /**
+   * Fetch aggregated financial dashboard stats for the active term
+   */
+  async getDashboardStats() {
+    const res = await api.get('/bursar/dashboard-stats');
+    return res.data;
   }
 };
 

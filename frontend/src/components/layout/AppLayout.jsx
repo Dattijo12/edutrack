@@ -6,7 +6,7 @@ import {
   GraduationCap, ClipboardList, FileCheck2, BarChart3, 
   FileSpreadsheet, KeyRound, ShieldCheck, LogOut, Sun, Moon, 
   Bell, Menu, X, Building2, ChevronRight, CheckCircle2, AlertCircle,
-  CalendarClock, MessageSquare
+  CalendarClock, MessageSquare, Shield, ArrowRightLeft
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -75,16 +75,20 @@ const AppLayout = ({ children }) => {
         { label: 'Classes & Arms', path: '/admin/classes', icon: Layers },
         { label: 'Subject Curriculum', path: '/admin/subjects', icon: BookOpen },
         { label: 'Student Directory', path: '/admin/students', icon: GraduationCap },
+        { label: 'Class Timetable', path: '/admin/timetable', icon: CalendarClock },
         { label: 'Bulk Upload', path: '/admin/bulk-upload', icon: FileSpreadsheet },
         { label: 'Result Windows', path: '/admin/result-windows', icon: CalendarClock },
-        { label: 'Manage Remarks', path: '/admin/remarks', icon: MessageSquare }
+        { label: 'Manage Remarks', path: '/admin/remarks', icon: MessageSquare },
+        { label: 'Student Promotion', path: '/admin/promotions', icon: ArrowRightLeft },
+        { label: 'Audit Trail', path: '/admin/audit-trail', icon: Shield }
       );
     }
 
     if (user?.role === 'teacher') {
       items.push(
         { label: 'Gradebook (Input Results)', path: '/teacher/results-entry', icon: ClipboardList },
-        { label: 'My Assigned Subjects', path: '/teacher/my-subjects', icon: BookOpen }
+        { label: 'My Assigned Subjects', path: '/teacher/my-subjects', icon: BookOpen },
+        { label: 'Class Timetable', path: '/teacher/timetable', icon: CalendarClock }
       );
     }
 
@@ -92,7 +96,8 @@ const AppLayout = ({ children }) => {
       // In the future, we will add routes for Roster, Attendance, etc.
       // For now, if they need to input results, we keep the Gradebook, but strictly hide My Assigned Subjects.
       items.push(
-        { label: 'Gradebook (Input Results)', path: '/teacher/results-entry', icon: ClipboardList }
+        { label: 'Gradebook (Input Results)', path: '/teacher/results-entry', icon: ClipboardList },
+        { label: 'Class Timetable', path: '/teacher/timetable', icon: CalendarClock }
       );
     }
 
@@ -100,7 +105,15 @@ const AppLayout = ({ children }) => {
       items.push(
         { label: 'Approve Results', path: '/exam-officer/approvals', icon: FileCheck2 },
         { label: 'Class Academic Reports', path: '/exam-officer/reports', icon: BarChart3 },
-        { label: 'Broadsheet Summary', path: '/exam-officer/broadsheet', icon: FileSpreadsheet }
+        { label: 'Broadsheet Summary', path: '/exam-officer/broadsheet', icon: FileSpreadsheet },
+        { label: 'Class Timetable', path: '/exam-officer/timetable', icon: CalendarClock }
+      );
+    }
+
+    if (user?.role === 'student') {
+      items.push(
+        { label: 'My Report Card', path: '/student/dashboard', icon: GraduationCap },
+        { label: 'Class Timetable', path: '/student/timetable', icon: CalendarClock }
       );
     }
 
@@ -115,6 +128,7 @@ const AppLayout = ({ children }) => {
   // Generate Page Title based on route
   const getPageTitle = () => {
     const p = location.pathname;
+    if (p.includes('/timetable')) return 'Class Timetable';
     if (p === '/dashboard') return 'System Dashboard';
     if (p === '/admin/settings') return 'School & Grading Configuration';
     if (p === '/admin/users') return 'Staff Account Management';
@@ -123,6 +137,8 @@ const AppLayout = ({ children }) => {
     if (p === '/admin/students') return 'Student Directory';
     if (p === '/admin/result-windows') return 'Time-Bound Result Windows';
     if (p === '/admin/remarks') return 'Manage Principal Remarks';
+    if (p === '/admin/audit-trail') return 'System Audit Trail';
+    if (p === '/admin/promotions') return 'Student Promotion & Transition';
     if (p === '/teacher/results-entry') return 'Gradebook & Score Entry';
     if (p === '/teacher/my-subjects') return 'My Assigned Subjects';
     if (p === '/exam-officer/approvals') return 'Results Approval Center';

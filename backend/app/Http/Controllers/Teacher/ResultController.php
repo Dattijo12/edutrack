@@ -10,6 +10,7 @@ use App\Models\Student;
 use App\Models\SubjectAssignment;
 use App\Models\AcademicTerm;
 use App\Models\ResultWindow;
+use App\Services\AuditService;
 use App\Services\GradingService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -40,21 +41,42 @@ class ResultController extends Controller
             'academic_session' => 'required|string',
         ]);
 
-        // Time-Bound Access Control Check: Reject grade submissions if ResultWindow is closed
+        $user = $request->user();
+        $isAdmin = $user && method_exists($user, 'isAdmin') ? $user->isAdmin() : in_array($user->role ?? '', ['admin', 'super_admin']);
+
+        // Strict Backend Result Window Lock Enforcement
+        $term = $validated['term'];
         $window = ResultWindow::where('academic_session', $validated['academic_session'])
-            ->where('term', $validated['term'])
+            ->where(function ($q) use ($term) {
+                $q->where('term', $term)
+                  ->orWhere('term', str_replace(['1st', '2nd', '3rd'], ['First', 'Second', 'Third'], $term))
+                  ->orWhere('term', str_replace(['First', 'Second', 'Third'], ['1st', '2nd', '3rd'], $term));
+            })
             ->first();
 
-        $isOpen = $window ? (bool) $window->is_open : ResultWindow::where('is_open', true)->exists();
-
-        if (!$isOpen) {
+        if (!$window || !$window->is_open) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Result window is closed. Grade submission is forbidden.',
+                'message' => 'Result window is locked or closed. Grade submission is forbidden.',
             ], 403);
         }
 
         $student = Student::findOrFail($validated['student_id']);
+
+        // Teacher Subject & Class Authorization: Verify official assignment
+        if (!$isAdmin) {
+            $isAssigned = SubjectAssignment::where('teacher_id', $user->id)
+                ->where('subject_id', $validated['subject_id'])
+                ->where('class_id', $student->class_id)
+                ->exists();
+
+            if (!$isAssigned) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Unauthorized. You are not officially assigned to teach this subject in this class.',
+                ], 403);
+            }
+        }
 
         // Calculate total score and WAEC/NECO grade & remark
         $totalScore = (float)$validated['ca_score'] + (float)$validated['exam_score'];
@@ -97,6 +119,14 @@ class ResultController extends Controller
             $validated['academic_session']
         );
 
+        // Audit trail: record grade entry/update
+        $subject = Subject::find($validated['subject_id']);
+        AuditService::log(
+            'grade_updated',
+            "Grade recorded for {$student->name} in {$subject->name}: CA={$validated['ca_score']}, Exam={$validated['exam_score']}, Total={$totalScore}, Grade={$gradeInfo['grade']}.",
+            $result
+        );
+
         return response()->json([
             'message' => 'Result recorded successfully',
             'data' => $result->load(['student.class', 'subject'])
@@ -110,22 +140,48 @@ class ResultController extends Controller
 
     public function update(Request $request, Result $result)
     {
-        if ($result->approval_status === 'approved' && !$request->user()->isAdmin()) {
+        $user = $request->user();
+        $isAdmin = $user && method_exists($user, 'isAdmin') ? $user->isAdmin() : in_array($user->role ?? '', ['admin', 'super_admin']);
+
+        if ($result->approval_status === 'approved' && !$isAdmin) {
             return response()->json(['message' => 'Cannot edit approved result.'], 422);
         }
 
-        // Time-Bound Access Control Check: Reject edits if ResultWindow is closed
+        // Strict Backend Result Window Lock Enforcement
+        $term = $result->term;
         $window = ResultWindow::where('academic_session', $result->academic_session)
-            ->where('term', $result->term)
+            ->where(function ($q) use ($term) {
+                $q->where('term', $term)
+                  ->orWhere('term', str_replace(['1st', '2nd', '3rd'], ['First', 'Second', 'Third'], $term))
+                  ->orWhere('term', str_replace(['First', 'Second', 'Third'], ['1st', '2nd', '3rd'], $term));
+            })
             ->first();
 
-        $isOpen = $window ? (bool) $window->is_open : ResultWindow::where('is_open', true)->exists();
-
-        if (!$isOpen) {
+        if (!$window || !$window->is_open) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Result window is closed. Grade submission is forbidden.',
+                'message' => 'Result window is locked or closed. Grade modification is forbidden.',
             ], 403);
+        }
+
+        // Teacher Subject & Class Authorization: Ensure teacher is officially assigned
+        if (!$isAdmin) {
+            $targetClassId = $result->class_id ?? $result->student?->class_id;
+            $isAssigned = SubjectAssignment::where('teacher_id', $user->id)
+                ->where('subject_id', $result->subject_id)
+                ->where(function ($q) use ($targetClassId) {
+                    if ($targetClassId) {
+                        $q->where('class_id', $targetClassId);
+                    }
+                })
+                ->exists();
+
+            if (!$isAssigned && (int)$result->teacher_id !== (int)$user->id) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Unauthorized. You are not officially assigned to teach this subject in this class.',
+                ], 403);
+            }
         }
 
         $maxScores = GradingService::getMaxScores();
@@ -149,6 +205,13 @@ class ResultController extends Controller
             'status' => 'pending',
             'rejection_reason' => null,
         ])->save();
+
+        // Audit trail: record grade correction/update
+        AuditService::log(
+            'grade_updated',
+            "Grade updated for student ID {$result->student_id} in subject ID {$result->subject_id}: CA={$validated['ca_score']}, Exam={$validated['exam_score']}, Total={$totalScore}, Grade={$gradeInfo['grade']}.",
+            $result
+        );
 
         return response()->json([
             'message' => 'Result updated successfully',
@@ -277,18 +340,38 @@ class ResultController extends Controller
             'academic_session' => 'required|string',
         ]);
 
-        // Time-Bound Access Control Check: Reject bulk uploads if ResultWindow is closed
+        $user = $request->user();
+        $isAdmin = $user && method_exists($user, 'isAdmin') ? $user->isAdmin() : in_array($user->role ?? '', ['admin', 'super_admin']);
+
+        // Strict Backend Result Window Lock Enforcement
+        $term = $request->term;
         $window = ResultWindow::where('academic_session', $request->academic_session)
-            ->where('term', $request->term)
+            ->where(function ($q) use ($term) {
+                $q->where('term', $term)
+                  ->orWhere('term', str_replace(['1st', '2nd', '3rd'], ['First', 'Second', 'Third'], $term))
+                  ->orWhere('term', str_replace(['First', 'Second', 'Third'], ['1st', '2nd', '3rd'], $term));
+            })
             ->first();
 
-        $isOpen = $window ? (bool) $window->is_open : ResultWindow::where('is_open', true)->exists();
-
-        if (!$isOpen) {
+        if (!$window || !$window->is_open) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Result window is closed. Grade submission is forbidden.',
+                'message' => 'Result window is locked or closed. Grade submission is forbidden.',
             ], 403);
+        }
+
+        // Teacher Subject Authorization: Verify official assignment
+        if (!$isAdmin) {
+            $isAssigned = SubjectAssignment::where('teacher_id', $user->id)
+                ->where('subject_id', $request->subject_id)
+                ->exists();
+
+            if (!$isAssigned) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Unauthorized. You are not officially assigned to teach this subject.',
+                ], 403);
+            }
         }
 
         $maxScores = GradingService::getMaxScores();

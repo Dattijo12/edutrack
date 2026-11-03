@@ -32,4 +32,9 @@ class SchoolClass extends Model
     {
         return $this->hasMany(SubjectAssignment::class, 'class_id');
     }
+
+    public function timetables()
+    {
+        return $this->hasMany(Timetable::class, 'school_class_id');
+    }
 }

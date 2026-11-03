@@ -19,6 +19,7 @@ class ResultWindow extends Model
         'academic_session',
         'term',
         'is_open',
+        'is_published',
     ];
 
     /**
@@ -28,6 +29,7 @@ class ResultWindow extends Model
      */
     protected $casts = [
         'is_open' => 'boolean',
+        'is_published' => 'boolean',
     ];
 
     /**

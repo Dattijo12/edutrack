@@ -4,14 +4,16 @@ import { useNavigate } from 'react-router-dom';
 import { 
   GraduationCap, Users, BookOpen, Layers, Settings, UserCheck, 
   FileCheck2, BarChart3, Sparkles, Building2, ClipboardList, AlertCircle, 
-  ChevronRight, AlertTriangle, Pencil, ArrowRight
+  ChevronRight, AlertTriangle, Pencil, ArrowRight, CalendarClock
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import { useSchool } from '../context/SchoolContext';
+import adminService from '../services/adminService';
 import analyticsService from '../services/analyticsService';
 import resultService from '../services/resultService';
 import formMasterService from '../services/formMasterService';
+import bursarService from '../services/bursarService';
 import GuardianDashboard from './guardian/GuardianDashboard';
 
 const CHART_COLORS = ['#7b93ff', '#ff7be1', '#00f2fe', '#ffb400', '#00e676', '#ff4b4b', '#a78bfa', '#f472b6'];
@@ -28,14 +30,46 @@ const Dashboard = () => {
   const [enrollmentData, setEnrollmentData] = useState([]);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [rejectedResults, setRejectedResults] = useState([]);
+
+  // Aggregated admin dashboard stats from the single-payload endpoint
+  const [dashboardStats, setDashboardStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(false);
   
   // Contextual Form Master assigned class state
   const [formMasterClass, setFormMasterClass] = useState(null);
 
+  // Bursar dashboard live financial metrics
+  const [bursarStats, setBursarStats] = useState({ total_collections: 0, pending_debts_count: 0 });
+  const [bursarStatsLoading, setBursarStatsLoading] = useState(false);
+
   useEffect(() => {
-    // Fetch enrollment analytics based on user role (Admin or Exam Officer)
-    const fetchAnalytics = async () => {
-      if (user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'exam_officer') {
+    // Fetch aggregated dashboard stats for admin in a single API call
+    const fetchAdminDashboardStats = async () => {
+      if (user?.role === 'admin' || user?.role === 'super_admin') {
+        try {
+          setStatsLoading(true);
+          setAnalyticsLoading(true);
+          const res = await adminService.getDashboardStats();
+          const stats = res?.data || res;
+          setDashboardStats(stats);
+          // Feed the enrollment chart from the aggregated students_per_class array
+          const chartData = (stats?.students_per_class || []).map(c => ({
+            class_name: c.class_name,
+            student_count: c.count,
+          }));
+          setEnrollmentData(chartData);
+        } catch (err) {
+          console.error('Failed to fetch admin dashboard stats:', err);
+        } finally {
+          setStatsLoading(false);
+          setAnalyticsLoading(false);
+        }
+      }
+    };
+
+    // Fetch enrollment analytics for Exam Officer (uses the separate endpoint)
+    const fetchExamOfficerAnalytics = async () => {
+      if (user?.role === 'exam_officer') {
         try {
           setAnalyticsLoading(true);
           const data = await analyticsService.getEnrollmentByClass(user?.role);
@@ -72,10 +106,42 @@ const Dashboard = () => {
       }
     };
     
-    fetchAnalytics();
+    // Fetch aggregated financial stats for Bursar dashboard
+    const fetchBursarStats = async () => {
+      if (user?.role === 'bursar') {
+        try {
+          setBursarStatsLoading(true);
+          const data = await bursarService.getDashboardStats();
+          setBursarStats({
+            total_collections: data?.total_collections ?? 0,
+            pending_debts_count: data?.pending_debts_count ?? 0,
+          });
+        } catch (err) {
+          console.error('Failed to fetch bursar dashboard stats:', err);
+        } finally {
+          setBursarStatsLoading(false);
+        }
+      }
+    };
+    
+    fetchAdminDashboardStats();
+    fetchExamOfficerAnalytics();
     fetchTeacherAlerts();
     fetchFormMasterClass();
+    fetchBursarStats();
   }, [user]);
+
+  /**
+   * Format large currency values into human-readable strings.
+   * e.g. 2400000 → ₦2.4M, 150000 → ₦150K, 950 → ₦950
+   */
+  const formatCurrency = (amount) => {
+    const num = parseFloat(amount) || 0;
+    if (num >= 1_000_000_000) return `₦${(num / 1_000_000_000).toFixed(1)}B`;
+    if (num >= 1_000_000) return `₦${(num / 1_000_000).toFixed(1)}M`;
+    if (num >= 1_000) return `₦${(num / 1_000).toFixed(1)}K`;
+    return `₦${num.toLocaleString()}`;
+  };
 
   const getRoleName = (role) => {
     switch (role) {
@@ -118,6 +184,12 @@ const Dashboard = () => {
       description: 'Manage student profiles, admission numbers, and class enrollments.',
       path: '/admin/students',
       icon: GraduationCap
+    },
+    {
+      title: 'Class Timetables',
+      description: 'Design weekly lesson schedules and prevent room or teacher conflicts.',
+      path: '/admin/timetable',
+      icon: CalendarClock
     },
     {
       title: 'Subject Allocations',
@@ -218,28 +290,32 @@ const Dashboard = () => {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '32px' }}>
             <div className="glass-panel stat-card">
               <p className="stat-label">Total Enrolled Students</p>
-              <h3 className="stat-value">342</h3>
+              <h3 className="stat-value">{statsLoading ? '...' : (dashboardStats?.total_students ?? '—')}</h3>
               <GraduationCap className="stat-bg-icon" size={90} color="#7b93ff" />
               <div className="stat-bar" style={{ background: 'hsl(var(--primary))' }}></div>
             </div>
 
             <div className="glass-panel stat-card">
               <p className="stat-label">Staff & Teachers</p>
-              <h3 className="stat-value">28</h3>
+              <h3 className="stat-value">{statsLoading ? '...' : (dashboardStats?.total_teachers ?? '—')}</h3>
               <Users className="stat-bg-icon" size={90} color="#ff7be1" />
               <div className="stat-bar" style={{ background: 'hsl(var(--secondary))' }}></div>
             </div>
 
             <div className="glass-panel stat-card">
-              <p className="stat-label">Curriculum Subjects</p>
-              <h3 className="stat-value">16</h3>
+              <p className="stat-label">Active Term</p>
+              <h3 className="stat-value" style={{ fontSize: dashboardStats?.current_term ? '18px' : '26px' }}>
+                {statsLoading ? '...' : (dashboardStats?.current_term
+                  ? `${dashboardStats.current_term.term} — ${dashboardStats.current_term.academic_session}`
+                  : '—')}
+              </h3>
               <BookOpen className="stat-bg-icon" size={90} color="#00f2fe" />
               <div className="stat-bar" style={{ background: 'hsl(var(--accent))' }}></div>
             </div>
 
             <div className="glass-panel stat-card">
               <p className="stat-label">Active Class Arms</p>
-              <h3 className="stat-value">12</h3>
+              <h3 className="stat-value">{statsLoading ? '...' : (dashboardStats?.total_classes ?? '—')}</h3>
               <Layers className="stat-bg-icon" size={90} color="#fffa7b" />
               <div className="stat-bar" style={{ background: '#fffa7b' }}></div>
             </div>
@@ -347,6 +423,18 @@ const Dashboard = () => {
               <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px' }}>My Assigned Subjects</h4>
               <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', lineHeight: '1.4' }}>View student rosters and course details.</p>
             </div>
+
+            <div className="glass-panel nav-card" onClick={() => navigate('/teacher/timetable')} style={{ cursor: 'pointer' }}>
+              <CalendarClock className="nav-card-icon" size={80} color="#ff7be1" />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(235, 92, 180, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <CalendarClock size={20} color="#ff7be1" />
+                </div>
+                <ChevronRight size={18} color="hsl(var(--text-secondary))" />
+              </div>
+              <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px' }}>Class Timetable</h4>
+              <p style={{ fontSize: '13px', color: 'hsl(var(--text-secondary))', lineHeight: '1.4' }}>View weekly subject schedules and instructional periods.</p>
+            </div>
           </div>
         </div>
       )}
@@ -436,13 +524,17 @@ const Dashboard = () => {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '32px' }}>
             <div className="glass-panel stat-card">
               <p className="stat-label">Total Collections</p>
-              <h3 className="stat-value" style={{ color: '#00f2fe' }}>₦2.4M</h3>
+              <h3 className="stat-value" style={{ color: '#00f2fe' }}>
+                {bursarStatsLoading ? '...' : formatCurrency(bursarStats.total_collections)}
+              </h3>
               <BarChart3 className="stat-bg-icon" size={90} color="#00f2fe" />
               <div className="stat-bar" style={{ background: 'hsl(var(--primary))' }}></div>
             </div>
             <div className="glass-panel stat-card">
               <p className="stat-label">Pending Debts</p>
-              <h3 className="stat-value" style={{ color: '#ff4b4b' }}>42</h3>
+              <h3 className="stat-value" style={{ color: '#ff4b4b' }}>
+                {bursarStatsLoading ? '...' : bursarStats.pending_debts_count}
+              </h3>
               <AlertCircle className="stat-bg-icon" size={90} color="#ff4b4b" />
               <div className="stat-bar" style={{ background: '#ff4b4b' }}></div>
             </div>

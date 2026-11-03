@@ -37,6 +37,40 @@ class ClassManagementController extends Controller
             'attendance_total' => 'nullable|integer|min:0',
         ]);
 
+        $user = $request->user();
+        $isAdmin = $user && method_exists($user, 'isAdmin') ? $user->isAdmin() : in_array($user->role ?? '', ['admin', 'super_admin']);
+
+        // 1. Teacher Class Authorization: Verify Form Master assignment
+        if (!$isAdmin) {
+            $class = SchoolClass::find($validated['class_id']);
+            if (!$class || (int)$class->form_master_id !== (int)$user->id) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Unauthorized. You are not officially assigned as the Form Master for this class.',
+                ], 403);
+            }
+        }
+
+        // 2. Strict Backend Result Window Lock Enforcement
+        $academicTerm = AcademicTerm::find($validated['term_id']);
+        if ($academicTerm) {
+            $term = $academicTerm->term;
+            $window = \App\Models\ResultWindow::where('academic_session', $academicTerm->session)
+                ->where(function ($q) use ($term) {
+                    $q->where('term', $term)
+                      ->orWhere('term', str_replace(['1st', '2nd', '3rd'], ['First', 'Second', 'Third'], $term))
+                      ->orWhere('term', str_replace(['First', 'Second', 'Third'], ['1st', '2nd', '3rd'], $term));
+                })
+                ->first();
+
+            if (!$window || !$window->is_open) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Result window is locked or closed. Remarks modification is forbidden.',
+                ], 403);
+            }
+        }
+
         $summary = TermSummary::firstOrNew([
             'student_id' => $validated['student_id'],
             'class_id' => $validated['class_id'],
@@ -105,6 +139,44 @@ class ClassManagementController extends Controller
         ]);
 
         $user = $request->user();
+        $isAdmin = $user && method_exists($user, 'isAdmin') ? $user->isAdmin() : in_array($user->role ?? '', ['admin', 'super_admin']);
+
+        // 1. Teacher Class Authorization
+        if (!$isAdmin) {
+            $class = SchoolClass::find($validated['class_id']);
+            $isFormMaster = $class && (int)$class->form_master_id === (int)$user->id;
+            $isTeacherOfClass = \App\Models\SubjectAssignment::where('teacher_id', $user->id)
+                ->where('class_id', $validated['class_id'])
+                ->exists();
+
+            if (!$isFormMaster && !$isTeacherOfClass) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Unauthorized. You are not officially assigned to this class.',
+                ], 403);
+            }
+        }
+
+        // 2. Strict Backend Result Window Lock Enforcement
+        $activeTerm = AcademicTerm::where('is_current', true)->first() ?? AcademicTerm::latest()->first();
+        if ($activeTerm) {
+            $term = $activeTerm->term;
+            $window = \App\Models\ResultWindow::where('academic_session', $activeTerm->session)
+                ->where(function ($q) use ($term) {
+                    $q->where('term', $term)
+                      ->orWhere('term', str_replace(['1st', '2nd', '3rd'], ['First', 'Second', 'Third'], $term))
+                      ->orWhere('term', str_replace(['First', 'Second', 'Third'], ['1st', '2nd', '3rd'], $term));
+                })
+                ->first();
+
+            if (!$window || !$window->is_open) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Academic session/term window is locked or closed. Attendance modification is forbidden.',
+                ], 403);
+            }
+        }
+
         $savedCount = 0;
 
         foreach ($validated['records'] as $record) {

@@ -3,12 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Laravel\Sanctum\HasApiTokens;
 
-class Student extends Model
+class Student extends Authenticatable
 {
-    use HasFactory, SoftDeletes;
+    use HasApiTokens, HasFactory, SoftDeletes;
 
     protected $fillable = [
         'admission_number',
@@ -17,6 +18,8 @@ class Student extends Model
         'class_id',
         'guardian_id',
         'gender',
+        'password',
+        'pin',
         'dob',
         'parent_phone',
         'guardian_phone',
@@ -24,8 +27,13 @@ class Student extends Model
         'photo_path',
     ];
 
+    protected $hidden = [
+        'password',
+    ];
+
     protected $casts = [
         'fee_cleared_status' => 'boolean',
+        'password' => 'hashed',
     ];
 
     // Append computed attributes to every JSON response

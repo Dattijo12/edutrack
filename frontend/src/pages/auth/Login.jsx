@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { GraduationCap, LogIn, Sun, Moon, Mail, Lock } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -180,6 +180,21 @@ const Login = () => {
               Subject Teacher
             </button>
           </div>
+        </div>
+
+        {/* Student Portal Link */}
+        <div style={{ marginTop: '20px', textAlign: 'center' }}>
+          <Link
+            to="/student/login"
+            style={{
+              fontSize: '12px',
+              color: 'hsl(var(--primary))',
+              textDecoration: 'none',
+              fontWeight: '600'
+            }}
+          >
+            Looking for your Report Card? Go to Student Portal &rarr;
+          </Link>
         </div>
 
       </div>

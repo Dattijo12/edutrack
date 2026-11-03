@@ -109,6 +109,15 @@ class BursarController extends Controller
                 ]);
             }
 
+            // Financial Audit Trail Logging
+            $actingUser = auth()->user();
+            $userName = $actingUser ? "{$actingUser->name} ({$actingUser->role})" : 'System';
+            \App\Services\AuditService::log(
+                'fee_payment_recorded',
+                "Payment of ₦{$validated['amount_paid']} recorded via {$validated['payment_method']} (Ref: {$paymentRecord->reference_number}) for student ID {$validated['student_id']} (" . ($student ? $student->name : 'N/A') . "). Fee clearance status set to cleared by {$userName}.",
+                $paymentRecord
+            );
+
             return $paymentRecord->load('student.class');
         });
 

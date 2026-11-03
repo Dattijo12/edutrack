@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ResultWindow;
+use App\Services\AuditService;
 use Illuminate\Http\Request;
 
 class ResultWindowController extends Controller
@@ -32,6 +33,7 @@ class ResultWindowController extends Controller
         ]);
 
         $isOpen = $request->has('is_open') ? (bool) $request->input('is_open') : true;
+        $isPublished = $request->has('is_published') ? (bool) $request->input('is_published') : false;
 
         $window = ResultWindow::updateOrCreate(
             [
@@ -40,6 +42,7 @@ class ResultWindowController extends Controller
             ],
             [
                 'is_open' => $isOpen,
+                'is_published' => $isPublished,
             ]
         );
 
@@ -62,6 +65,30 @@ class ResultWindowController extends Controller
 
         return response()->json([
             'message' => "Result window for {$resultWindow->term} ({$resultWindow->academic_session}) is now {$statusText}.",
+            'data' => $resultWindow,
+        ], 200);
+    }
+
+    /**
+     * Toggle the is_published status of a specific result window for the Student Portal.
+     */
+    public function togglePublish(ResultWindow $resultWindow)
+    {
+        $resultWindow->update([
+            'is_published' => !$resultWindow->is_published,
+        ]);
+
+        $statusText = $resultWindow->is_published ? 'published' : 'unpublished';
+
+        // Audit trail: record result publication toggle by Super Admin
+        AuditService::log(
+            $resultWindow->is_published ? 'results_published' : 'results_unpublished',
+            "Results for {$resultWindow->term} ({$resultWindow->academic_session}) are now {$statusText} to the Student Portal.",
+            $resultWindow
+        );
+
+        return response()->json([
+            'message' => "Results for {$resultWindow->term} ({$resultWindow->academic_session}) are now {$statusText} to the Student Portal.",
             'data' => $resultWindow,
         ], 200);
     }

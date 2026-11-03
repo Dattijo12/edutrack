@@ -29,9 +29,12 @@ class Result extends Model
         'subject_position',
         'term',
         'academic_session',
+        'term_id',
+        'result_window_id',
         'approval_status',
         'status',
         'rejection_reason',
+        'verification_hash',
     ];
 
     public function student()
@@ -57,5 +60,10 @@ class Result extends Model
     public function academicTerm()
     {
         return $this->belongsTo(AcademicTerm::class, 'term_id');
+    }
+
+    public function resultWindow()
+    {
+        return $this->belongsTo(ResultWindow::class, 'result_window_id');
     }
 }

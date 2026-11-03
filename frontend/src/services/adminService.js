@@ -56,6 +56,29 @@ const adminService = {
   async promoteClass(data) {
     const res = await api.post('/admin/promote-class', data);
     return res.data;
+  },
+
+  // Aggregated Dashboard Statistics (single payload)
+  async getDashboardStats() {
+    const res = await api.get('/admin/dashboard/stats');
+    return res.data;
+  },
+
+  // System Audit Trail
+  async getAuditLogs(params = {}) {
+    const res = await api.get('/admin/audit-logs', { params });
+    return res.data;
+  },
+
+  async getAuditActions() {
+    const res = await api.get('/admin/audit-logs/actions');
+    return res.data;
+  },
+
+  // Granular per-student promotion with history tracking
+  async promoteStudents(payload) {
+    const res = await api.post('/admin/promotions', payload);
+    return res.data;
   }
 };
 
