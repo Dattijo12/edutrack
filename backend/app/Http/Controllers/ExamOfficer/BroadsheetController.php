@@ -177,7 +177,7 @@ class BroadsheetController extends Controller
         $term = $request->query('term') ?: $defaultTerm;
         $session = $request->query('session') ?: $defaultSession;
 
-        $student = Student::with('class')->findOrFail($studentId);
+        $student = Student::with('class.formMaster')->findOrFail($studentId);
 
         // IDOR Prevention: If accessed by a student user, strictly prevent access to any other student's report card
         $user = $request->user();
@@ -277,6 +277,9 @@ class BroadsheetController extends Controller
         $subjectCount = $formattedResults->count();
         $average = $subjectCount > 0 ? round($totalMarks / $subjectCount, 2) : 0;
 
+        $formMaster = $student->class?->formMaster;
+        $principalName = $settings?->principal_name ?: (\App\Models\User::where('role', 'admin')->first()?->name ?? 'Dr. A. B. Danjuma (Principal)');
+
         return response()->json([
             'locked' => false,
             'school' => $settings,
@@ -287,6 +290,15 @@ class BroadsheetController extends Controller
                 'gender' => $student->gender ?? 'N/A',
                 'class_name' => $student->class ? ($student->class->name . ' ' . $student->class->arm) : 'N/A',
                 'fee_cleared' => true,
+            ],
+            'form_master' => [
+                'name'          => $formMaster?->name ?? 'Class Form Master',
+                'signature_url' => $formMaster?->signature_url,
+            ],
+            'principal' => [
+                'name'          => $principalName,
+                'signature_url' => $settings?->principal_signature_url,
+                'stamp_url'     => $settings?->stamp_url,
             ],
             'term' => $term,
             'session' => $session,

@@ -469,25 +469,76 @@ const StudentDashboard = () => {
             {/* Official Remarks Cards (Form Master & Principal) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Form Master's Remark */}
-              <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-2">
-                <div className="flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
-                  <UserCheck className="w-4 h-4" />
-                  Form Master's Remark
+              <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
+                    <UserCheck className="w-4 h-4" />
+                    Form Master's Remark
+                  </div>
+                  {reportData?.form_master?.name && (
+                    <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                      {reportData.form_master.name}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-slate-700 dark:text-slate-300 italic leading-relaxed">
                   "{reportData?.summary?.form_master_remark || 'An attentive and disciplined student. Keeps up good performance.'}"
                 </p>
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
+                  <span className="text-[10px] text-slate-400 font-medium">Official Sign-Off</span>
+                  {reportData?.form_master?.signature_url ? (
+                    <img 
+                      src={reportData.form_master.signature_url} 
+                      alt="Form Master Signature" 
+                      className="max-h-7 object-contain" 
+                    />
+                  ) : (
+                    <span className="font-serif italic text-xs text-indigo-600/80">
+                      {reportData?.form_master?.name || 'Class Form Master'}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Principal's Remark */}
-              <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-2">
-                <div className="flex items-center gap-2 text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
-                  <MessageSquare className="w-4 h-4" />
-                  Principal's Endorsement
+              <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
+                    <MessageSquare className="w-4 h-4" />
+                    Principal's Endorsement
+                  </div>
+                  {reportData?.principal?.name && (
+                    <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                      {reportData.principal.name}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-slate-700 dark:text-slate-300 italic leading-relaxed">
                   "{reportData?.summary?.principal_remark || 'A commendable result. Recommended for promotion to the next level.'}"
                 </p>
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
+                  <span className="text-[10px] text-slate-400 font-medium">School Seal & Signature</span>
+                  <div className="flex items-center gap-2">
+                    {reportData?.principal?.stamp_url && (
+                      <img 
+                        src={reportData.principal.stamp_url} 
+                        alt="School Seal" 
+                        className="max-h-6 object-contain opacity-80" 
+                      />
+                    )}
+                    {reportData?.principal?.signature_url ? (
+                      <img 
+                        src={reportData.principal.signature_url} 
+                        alt="Principal Signature" 
+                        className="max-h-7 object-contain" 
+                      />
+                    ) : (
+                      <span className="font-serif italic text-xs text-purple-600/80">
+                        {reportData?.principal?.name || 'Dr. A. B. Danjuma'}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

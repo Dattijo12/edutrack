@@ -14,12 +14,14 @@ Route::post('/login', 'App\Http\Controllers\AuthController@login')->middleware('
 Route::post('/student/login', 'App\Http\Controllers\Student\StudentAuthController@login')->middleware('throttle:5,1')->name('student.login');
 Route::get('/verify-result/{hash}', 'App\Http\Controllers\ExamOfficer\BroadsheetController@verifyResult')->name('result.verify');
 Route::get('/school-settings', 'App\Http\Controllers\Admin\SchoolSettingController@show')->name('school.settings.public');
+Route::get('/settings', 'App\Http\Controllers\Admin\SchoolSettingController@show')->name('settings.public');
 
 // Authenticated Routes
 Route::middleware('auth:sanctum')->group(function () {
     // Shared Auth endpoints
     Route::post('/logout', 'App\Http\Controllers\AuthController@logout')->name('logout');
     Route::get('/profile', 'App\Http\Controllers\AuthController@profile')->name('profile');
+    Route::post('/profile/signature', 'App\Http\Controllers\AuthController@uploadSignature')->name('profile.signature');
     Route::post('/change-password', 'App\Http\Controllers\AuthController@changePassword')->name('change_password');
     
     // Global Search
@@ -37,6 +39,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/audit-logs/actions', 'App\Http\Controllers\Admin\AuditLogController@actions')->name('admin.audit_logs.actions');
 
         Route::apiResource('users', 'App\Http\Controllers\Admin\UserController');
+        Route::post('/users/{user}/signature', 'App\Http\Controllers\Admin\UserController@uploadSignature')->name('admin.users.signature');
         Route::apiResource('classes', 'App\Http\Controllers\Admin\ClassController');
         Route::apiResource('subjects', 'App\Http\Controllers\Admin\SubjectController');
         Route::apiResource('students', 'App\Http\Controllers\Admin\StudentController');

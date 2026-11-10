@@ -9,6 +9,7 @@ use App\Models\SchoolClass;
 use App\Services\AuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 /**
@@ -233,6 +234,32 @@ class UserController extends Controller
 
         return response()->json([
             'message' => 'User account deleted successfully'
+        ], 200);
+    }
+
+    /**
+     * Upload an official signature image on behalf of a staff member.
+     */
+    public function uploadSignature(Request $request, User $user)
+    {
+        $request->validate([
+            'signature' => 'required|image|mimes:png,jpg,jpeg,webp|max:2048',
+        ]);
+
+        if ($user->signature_path && Storage::disk('public')->exists($user->signature_path)) {
+            Storage::disk('public')->delete($user->signature_path);
+        }
+
+        $path = $request->file('signature')->store('school-assets/staff-signatures', 'public');
+        $user->signature_path = $path;
+        $user->save();
+
+        AuditService::log('staff_signature_uploaded', "Administrator uploaded signature for {$user->name} ({$user->role})", $user);
+
+        return response()->json([
+            'message'       => 'Staff signature uploaded successfully.',
+            'signature_url' => $user->signature_url,
+            'user'          => $user,
         ], 200);
     }
 }

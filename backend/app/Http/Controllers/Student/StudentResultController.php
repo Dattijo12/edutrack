@@ -44,8 +44,24 @@ class StudentResultController extends Controller
         $user = $request->user();
 
         return ($user instanceof Student)
-            ? $user->load('class')
-            : Student::with('class')->find($user->id);
+            ? $user->load(['class.formMaster'])
+            : Student::with(['class.formMaster'])->find($user->id);
+    }
+
+    /**
+     * Helper to encode a local image file into a base64 data URI for DomPDF.
+     *
+     * @param  string|null  $path
+     * @return string|null
+     */
+    private function fileToBase64(?string $path): ?string
+    {
+        if (!$path || !file_exists($path)) {
+            return null;
+        }
+        $mime = mime_content_type($path) ?: 'image/png';
+        $data = file_get_contents($path);
+        return 'data:' . $mime . ';base64,' . base64_encode($data);
     }
 
     /**
@@ -173,6 +189,8 @@ class StudentResultController extends Controller
 
         // Fetch School Branding & Configurations
         $schoolSettings = SchoolSetting::first();
+        $formMaster = $student->class?->formMaster;
+        $principalName = $schoolSettings?->principal_name ?: (\App\Models\User::where('role', 'admin')->first()?->name ?? 'Dr. A. B. Danjuma (Principal)');
 
         return response()->json([
             'status' => 'success',
@@ -191,6 +209,15 @@ class StudentResultController extends Controller
                     'arm' => $student->class->arm ?? '',
                     'full_name' => trim("{$student->class->name} {$student->class->arm}"),
                 ] : null,
+            ],
+            'form_master' => [
+                'name'          => $formMaster?->name ?? 'Class Form Master',
+                'signature_url' => $formMaster?->signature_url,
+            ],
+            'principal' => [
+                'name'          => $principalName,
+                'signature_url' => $schoolSettings?->principal_signature_url,
+                'stamp_url'     => $schoolSettings?->stamp_url,
             ],
             'summary' => [
                 'total_score' => $totalScore,
@@ -295,15 +322,39 @@ class StudentResultController extends Controller
         $subjectCount = $results->count();
         $averagePercentage = $subjectCount > 0 ? round($totalScore / $subjectCount, 2) : 0.0;
 
-        $schoolSettings = SchoolSetting::first();
+        $schoolSettings = SchoolSetting::firstOrCreate([], [
+            'name'           => 'EduTrack International Academy',
+            'motto'          => 'Excellence, Integrity and Discipline',
+            'address'        => '15 Education Boulevard, Victoria Island, Lagos, Nigeria',
+            'phone'          => '+234 802 345 6789',
+            'email'          => 'contact@edutrack.edu.ng',
+            'principal_name' => 'Dr. A. B. Danjuma (Principal)',
+        ]);
+
+        $student->loadMissing(['class.formMaster']);
+        $formMaster = $student->class?->formMaster;
+        $formMasterName = $formMaster?->name ?? 'Class Form Master';
+        $formMasterSignature = $this->fileToBase64($formMaster?->getLocalSignaturePath());
+
+        $principalName = $schoolSettings->principal_name ?: (\App\Models\User::where('role', 'admin')->first()?->name ?? 'Dr. A. B. Danjuma (Principal)');
+        $principalSignature = $this->fileToBase64($schoolSettings->getLocalPrincipalSignaturePath());
+        $stampBase64 = $this->fileToBase64($schoolSettings->getLocalStampPath());
+        $logoBase64 = $this->fileToBase64($schoolSettings->getLocalLogoPath());
 
         // 6. Prepare the data payload for the Blade PDF view
         $data = [
-            'school'  => $schoolSettings,
-            'student' => $student,
-            'session' => $session,
-            'term'    => $term,
-            'results' => $results,
+            'school'                => $schoolSettings,
+            'student'               => $student,
+            'session'               => $session,
+            'term'                  => $term,
+            'results'               => $results,
+            'logo_base64'           => $logoBase64,
+            'form_master_name'      => $formMasterName,
+            'form_master_signature' => $formMasterSignature,
+            'principal_name'        => $principalName,
+            'principal_signature'   => $principalSignature,
+            'stamp_base64'          => $stampBase64,
+            'sign_date'             => now()->format('d/m/Y'),
             'summary' => [
                 'total_score'        => $totalScore,
                 'subjects_count'     => $subjectCount,

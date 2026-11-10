@@ -18,14 +18,24 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // 1. Seed School Settings
-        SchoolSetting::firstOrCreate([], [
-            'name' => 'EduTrack International Academy',
-            'address' => '15 Education Boulevard, Victoria Island, Lagos, Nigeria',
-            'phone' => '+234 802 345 6789',
-            'email' => 'contact@edutrack.edu.ng',
-            'max_ca_score' => 30.00,
-            'max_exam_score' => 70.00,
-        ]);
+        $setting = SchoolSetting::first();
+        if (!$setting) {
+            $setting = SchoolSetting::create([
+                'name' => 'EduTrack International Academy',
+                'motto' => 'Knowledge, Character & Excellence',
+                'principal_name' => 'Dr. A. B. Danjuma (Principal)',
+                'address' => '15 Education Boulevard, Victoria Island, Lagos, Nigeria',
+                'phone' => '+234 802 345 6789',
+                'email' => 'contact@edutrack.edu.ng',
+                'max_ca_score' => 30.00,
+                'max_exam_score' => 70.00,
+            ]);
+        } else {
+            $setting->update([
+                'motto' => $setting->motto ?? 'Knowledge, Character & Excellence',
+                'principal_name' => $setting->principal_name ?? 'Dr. A. B. Danjuma (Principal)',
+            ]);
+        }
 
         // 2. Seed Academic Terms
         $term1 = AcademicTerm::firstOrCreate(
@@ -210,5 +220,8 @@ class DatabaseSeeder extends Seeder
                 ])
             ]
         );
+
+        // 9. Seed Demo Guardian Profile & Student Link
+        $this->call(GuardianSeeder::class);
     }
 }

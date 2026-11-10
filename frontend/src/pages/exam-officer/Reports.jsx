@@ -248,6 +248,11 @@ const Reports = () => {
                       <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">
                         {schoolInfo.name || 'EduTrack Academy'}
                       </h2>
+                      {(schoolInfo.motto || schoolInfo.school_motto) && (
+                        <p className="text-xs italic text-indigo-700 font-semibold mt-0.5">
+                          "{schoolInfo.motto || schoolInfo.school_motto}"
+                        </p>
+                      )}
                       <p className="text-xs text-slate-600 font-medium mt-0.5">
                         {schoolInfo.address || 'School Address'} {schoolInfo.phone ? `| Tel: ${schoolInfo.phone}` : ''}
                       </p>
@@ -391,17 +396,54 @@ const Reports = () => {
 
                   {/* Signatures Grid */}
                   <div className="md:col-span-7 grid grid-cols-2 gap-6 text-center text-xs">
-                    <div>
-                      <div className="border-b border-slate-900 h-10 mb-1 flex items-end justify-center pb-1">
-                        <span className="font-serif italic text-slate-400 text-[10px]">Form Master</span>
+                    <div className="border border-slate-200 rounded-lg p-2.5 bg-slate-50/50">
+                      <div className="min-h-[44px] flex items-center justify-center">
+                        {student.form_master_signature || student.form_master?.signature_url ? (
+                          <img 
+                            src={student.form_master_signature || student.form_master?.signature_url} 
+                            alt="Form Master Signature" 
+                            className="max-h-11 object-contain" 
+                          />
+                        ) : (
+                          <span className="font-serif italic text-indigo-900 text-lg">
+                            {student.form_master_name || student.form_master?.name || 'Class Form Master'}
+                          </span>
+                        )}
                       </div>
-                      <span className="font-bold text-slate-800">Form Master Signature</span>
+                      <div className="border-t border-slate-400 pt-1 mt-1">
+                        <span className="font-bold text-slate-800 block">
+                          {student.form_master_name || student.form_master?.name || 'Form Master'}
+                        </span>
+                        <span className="text-[10px] text-slate-500">Form Master Signature</span>
+                      </div>
                     </div>
-                    <div>
-                      <div className="border-b border-slate-900 h-10 mb-1 flex items-end justify-center pb-1">
-                        <span className="font-serif italic text-slate-400 text-[10px]">Principal</span>
+                    <div className="border border-slate-200 rounded-lg p-2.5 bg-slate-50/50 relative">
+                      <div className="min-h-[44px] flex items-center justify-center gap-2">
+                        {(schoolInfo.stamp_url || schoolInfo.school_stamp_url) && (
+                          <img 
+                            src={schoolInfo.stamp_url || schoolInfo.school_stamp_url} 
+                            alt="Official Stamp" 
+                            className="max-h-11 max-w-[45px] object-contain opacity-80" 
+                          />
+                        )}
+                        {(schoolInfo.principal_signature_url || schoolInfo.principal_signature_path) ? (
+                          <img 
+                            src={schoolInfo.principal_signature_url} 
+                            alt="Principal Signature" 
+                            className="max-h-11 object-contain" 
+                          />
+                        ) : (
+                          <span className="font-serif italic text-indigo-900 text-lg">
+                            {schoolInfo.principal_name || 'Dr. A. B. Danjuma'}
+                          </span>
+                        )}
                       </div>
-                      <span className="font-bold text-slate-800">Principal Signature & Stamp</span>
+                      <div className="border-t border-slate-400 pt-1 mt-1">
+                        <span className="font-bold text-slate-800 block">
+                          {schoolInfo.principal_name || 'Principal'}
+                        </span>
+                        <span className="text-[10px] text-slate-500">Principal Signature & Stamp</span>
+                      </div>
                     </div>
                   </div>
 

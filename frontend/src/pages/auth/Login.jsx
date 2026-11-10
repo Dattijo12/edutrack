@@ -179,6 +179,9 @@ const Login = () => {
             <button onClick={() => autofillUser('teacher@school.com', 'teacher123')} className="badge badge-teacher" style={{ cursor: 'pointer', border: 'none' }}>
               Subject Teacher
             </button>
+            <button onClick={() => autofillUser('guardian@test.com', 'password')} className="badge badge-guardian" style={{ cursor: 'pointer', border: 'none' }}>
+              Parent / Guardian
+            </button>
           </div>
         </div>
 

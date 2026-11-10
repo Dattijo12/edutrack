@@ -7,6 +7,7 @@ use App\Services\AuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -89,13 +90,44 @@ class AuthController extends Controller
 
         return response()->json([
             'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'phone' => $user->phone,
-                'role' => $user->role,
-                'status' => $user->status,
+                'id'            => $user->id,
+                'name'          => $user->name,
+                'email'         => $user->email,
+                'phone'         => $user->phone,
+                'role'          => $user->role,
+                'gender'        => $user->gender,
+                'signature_url' => $user->signature_url,
+                'status'        => $user->status,
             ]
+        ], 200);
+    }
+
+    /**
+     * Upload an official staff signature image (PNG, JPG, WEBP).
+     * Accessible by authenticated Form Masters, Teachers, and Administrators.
+     */
+    public function uploadSignature(Request $request)
+    {
+        $request->validate([
+            'signature' => 'required|image|mimes:png,jpg,jpeg,webp|max:2048',
+        ]);
+
+        $user = $request->user();
+
+        if ($user->signature_path && Storage::disk('public')->exists($user->signature_path)) {
+            Storage::disk('public')->delete($user->signature_path);
+        }
+
+        $path = $request->file('signature')->store('school-assets/staff-signatures', 'public');
+        $user->signature_path = $path;
+        $user->save();
+
+        AuditService::log('staff_signature_uploaded', "Staff member {$user->name} ({$user->role}) uploaded an official digital signature.", $user);
+
+        return response()->json([
+            'message'       => 'Signature uploaded successfully.',
+            'signature_url' => $user->signature_url,
+            'user'          => $user,
         ], 200);
     }
 

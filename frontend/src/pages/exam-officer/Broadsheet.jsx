@@ -407,6 +407,11 @@ const Broadsheet = () => {
                 )}
                 <div>
                   <h1 style={{ fontSize: '24px', fontWeight: '800', textTransform: 'uppercase', margin: 0 }}>{reportCardData.school?.name}</h1>
+                  {(reportCardData.school?.motto || reportCardData.school?.school_motto) && (
+                    <p style={{ fontSize: '12px', fontStyle: 'italic', color: '#1a237e', margin: '2px 0', fontWeight: '600' }}>
+                      "{reportCardData.school.motto || reportCardData.school.school_motto}"
+                    </p>
+                  )}
                   <p style={{ fontSize: '12px', margin: '2px 0' }}>{reportCardData.school?.address}</p>
                   <p style={{ fontSize: '12px', margin: 0 }}>Phone: {reportCardData.school?.phone} | Email: {reportCardData.school?.email}</p>
                 </div>
@@ -466,34 +471,85 @@ const Broadsheet = () => {
               </div>
             </div>
 
-            {/* QR Verification & Signature Footer */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '2px solid #000', paddingTop: '15px', marginTop: '20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                <div style={{ border: '2px solid #000', padding: '4px', background: '#fff', borderRadius: '4px', textAlign: 'center', width: '80px', height: '80px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            {/* QR Verification & Official Authorization Footers */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '20px', alignItems: 'flex-end', borderTop: '2px solid #000', paddingTop: '15px', marginTop: '20px' }}>
+              
+              {/* QR Code Verification */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ border: '2px solid #000', padding: '4px', background: '#fff', borderRadius: '4px', textAlign: 'center', width: '75px', height: '75px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   {reportCardData.qr_code ? (
-                    <img src={reportCardData.qr_code} alt="QR Code Verification" style={{ width: '70px', height: '70px', objectFit: 'contain' }} />
+                    <img src={reportCardData.qr_code} alt="QR Code Verification" style={{ width: '65px', height: '65px', objectFit: 'contain' }} />
                   ) : (
                     <>
-                      <CheckCircle2 size={32} color="#0d9c3f" />
+                      <CheckCircle2 size={28} color="#0d9c3f" />
                       <span style={{ fontSize: '8px', fontWeight: 'bold', marginTop: '2px' }}>QR VERIFIED</span>
                     </>
                   )}
                 </div>
                 <div>
-                  <p style={{ fontSize: '11px', fontWeight: 'bold', margin: 0 }}>ANTI-FORGERY QR VERIFICATION</p>
-                  <p style={{ fontSize: '10px', color: '#555', wordBreak: 'break-all', maxWidth: '300px', margin: '2px 0' }}>
-                    Code: {reportCardData.verification_hash}
+                  <p style={{ fontSize: '11px', fontWeight: '800', margin: 0, textTransform: 'uppercase' }}>Anti-Forgery Verification</p>
+                  <p style={{ fontSize: '9px', color: '#555', wordBreak: 'break-all', maxWidth: '200px', margin: '2px 0', fontFamily: 'monospace' }}>
+                    {reportCardData.verification_hash}
                   </p>
-                  <a href={reportCardData.verification_url} target="_blank" rel="noreferrer" style={{ fontSize: '10px', color: '#0055ff' }}>
+                  <a href={reportCardData.verification_url} target="_blank" rel="noreferrer" style={{ fontSize: '10px', color: '#0055ff', textDecoration: 'underline' }}>
                     Verify authenticity online
                   </a>
                 </div>
               </div>
 
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ height: '40px', borderBottom: '1px solid #000', width: '160px', margin: '0 auto 4px auto' }}></div>
-                <p style={{ fontSize: '11px', fontWeight: 'bold', margin: 0 }}>Principal Signature & Stamp</p>
+              {/* Form Master Endorsement */}
+              <div style={{ textAlign: 'center', border: '1px dashed #999', padding: '8px', borderRadius: '4px', background: '#fafafa' }}>
+                <div style={{ minHeight: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {reportCardData.form_master?.signature_url ? (
+                    <img 
+                      src={reportCardData.form_master.signature_url} 
+                      alt="Form Master Signature" 
+                      style={{ maxHeight: '42px', maxWidth: '140px', objectFit: 'contain' }} 
+                    />
+                  ) : (
+                    <span style={{ fontFamily: '"Brush Script MT", "Caveat", cursive', fontSize: '20px', color: '#1a237e' }}>
+                      {reportCardData.form_master?.name || 'Class Form Master'}
+                    </span>
+                  )}
+                </div>
+                <div style={{ borderTop: '1px solid #000', paddingTop: '4px', marginTop: '4px' }}>
+                  <p style={{ fontSize: '11px', fontWeight: 'bold', margin: 0 }}>
+                    {reportCardData.form_master?.name || 'Form Master'}
+                  </p>
+                  <p style={{ fontSize: '9px', color: '#666', margin: 0 }}>Form Master Signature & Date</p>
+                </div>
               </div>
+
+              {/* Principal Endorsement & Stamp */}
+              <div style={{ textAlign: 'center', border: '1px dashed #999', padding: '8px', borderRadius: '4px', background: '#fafafa', position: 'relative' }}>
+                <div style={{ minHeight: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                  {(reportCardData.principal?.stamp_url || reportCardData.school?.stamp_url) && (
+                    <img 
+                      src={reportCardData.principal?.stamp_url || reportCardData.school?.stamp_url} 
+                      alt="Official Seal" 
+                      style={{ maxHeight: '45px', maxWidth: '60px', objectFit: 'contain', opacity: 0.85 }} 
+                    />
+                  )}
+                  {reportCardData.principal?.signature_url || reportCardData.school?.principal_signature_url ? (
+                    <img 
+                      src={reportCardData.principal?.signature_url || reportCardData.school?.principal_signature_url} 
+                      alt="Principal Signature" 
+                      style={{ maxHeight: '42px', maxWidth: '120px', objectFit: 'contain' }} 
+                    />
+                  ) : (
+                    <span style={{ fontFamily: '"Brush Script MT", "Caveat", cursive', fontSize: '20px', color: '#1a237e' }}>
+                      {reportCardData.principal?.name || reportCardData.school?.principal_name || 'Dr. A. B. Danjuma'}
+                    </span>
+                  )}
+                </div>
+                <div style={{ borderTop: '1px solid #000', paddingTop: '4px', marginTop: '4px' }}>
+                  <p style={{ fontSize: '11px', fontWeight: 'bold', margin: 0 }}>
+                    {reportCardData.principal?.name || reportCardData.school?.principal_name || 'Principal'}
+                  </p>
+                  <p style={{ fontSize: '9px', color: '#666', margin: 0 }}>Principal Signature & Official Seal</p>
+                </div>
+              </div>
+
             </div>
 
           </div>

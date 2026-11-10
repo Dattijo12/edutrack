@@ -16,10 +16,28 @@ class User extends Authenticatable
         'email',
         'phone',
         'gender',
+        'signature_path',
         'password',
         'role',
         'status',
     ];
+
+    protected $appends = [
+        'signature_url',
+    ];
+
+    public function getSignatureUrlAttribute(): ?string
+    {
+        return $this->signature_path ? asset('storage/' . $this->signature_path) : null;
+    }
+
+    public function getLocalSignaturePath(): ?string
+    {
+        if ($this->signature_path && file_exists(storage_path('app/public/' . $this->signature_path))) {
+            return storage_path('app/public/' . $this->signature_path);
+        }
+        return null;
+    }
 
     protected $hidden = [
         'password',

@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import formMasterService from '../../services/formMasterService';
+import { useAuth } from '../../context/AuthContext';
 
 const ClassRemarks = () => {
+  const { user } = useAuth();
   const [assignedClass, setAssignedClass] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -63,9 +65,50 @@ const ClassRemarks = () => {
         </Link>
         
         <h2 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '4px' }}>Form Master Class Console</h2>
-        <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '14px', marginBottom: '30px' }}>
+        <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '14px', marginBottom: '20px' }}>
           Input terminal conduct remarks, attendance, and principal endorsements for your assigned class.
         </p>
+
+        {/* Form Master Signature Status Card */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '14px 18px',
+          background: 'rgba(255, 255, 255, 0.04)',
+          border: '1px solid var(--border-dark)',
+          borderRadius: '12px',
+          marginBottom: '25px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            {user?.signature_url ? (
+              <img 
+                src={user.signature_url} 
+                alt="Your Signature" 
+                style={{ maxHeight: '36px', maxWidth: '100px', objectFit: 'contain', background: '#fff', padding: '2px 6px', borderRadius: '4px' }} 
+              />
+            ) : (
+              <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(255,180,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffb400', fontSize: '18px' }}>
+                ✍️
+              </div>
+            )}
+            <div>
+              <p style={{ fontSize: '13px', fontWeight: '700', margin: 0, color: 'hsl(var(--text-primary))' }}>
+                Official Report Card Signature: {user?.signature_url ? <span style={{ color: '#00e676' }}>Active</span> : <span style={{ color: '#ffb400' }}>Not Uploaded</span>}
+              </p>
+              <p style={{ fontSize: '12px', color: 'hsl(var(--text-secondary))', margin: '2px 0 0 0' }}>
+                {user?.signature_url ? 'This signature will be appended to your class report cards automatically.' : 'A digital cursive name will be used until an official signature is uploaded.'}
+              </p>
+            </div>
+          </div>
+          <Link 
+            to="/change-password" 
+            className="btn-secondary"
+            style={{ fontSize: '12px', padding: '6px 14px', textDecoration: 'none', whiteSpace: 'nowrap' }}
+          >
+            {user?.signature_url ? 'Update Signature' : 'Upload Signature'}
+          </Link>
+        </div>
 
         {message && (
           <div style={{ padding: '12px 16px', borderRadius: '8px', background: 'rgba(75,255,125,0.15)', color: '#4bff7d', fontSize: '14px', marginBottom: '20px' }}>

@@ -45,6 +45,20 @@ const authService = {
     return response.data;
   },
 
+  async uploadSignature(file) {
+    const formData = new FormData();
+    formData.append('signature', file);
+    const response = await api.post('/profile/signature', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    if (response.data?.user) {
+      const currentUser = authService.getCurrentUser() || {};
+      const updated = { ...currentUser, ...response.data.user, signature_url: response.data.signature_url };
+      localStorage.setItem('user', JSON.stringify(updated));
+    }
+    return response.data;
+  },
+
   getCurrentUser() {
     const userStr = localStorage.getItem('user');
     return userStr ? JSON.parse(userStr) : null;
